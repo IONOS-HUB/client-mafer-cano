@@ -1,0 +1,13 @@
+{
+    "name": "print-server",
+    "version": "1.0.0",
+    "description": "Servidor local para impresión térmica usando Windows Driver",
+    "main": "server.js",
+    "scripts": {
+        "start": "node server.js"
+    },
+    "dependencies": {
+        "node-thermal-printer": "^4.5.0",
+        "pngjs": "^7.0.0"
+    }
+}
