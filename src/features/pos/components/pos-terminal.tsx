@@ -26,10 +26,19 @@ export function POSTerminal() {
 
     useEffect(() => {
         if (lastSale) {
-            const timer = setTimeout(() => {
+            // Imprimir dos veces con un delay entre cada impresión
+            const timer1 = setTimeout(() => {
                 window.print();
+
+                // Segunda impresión después de 2 segundos
+                const timer2 = setTimeout(() => {
+                    window.print();
+                }, 2000);
+
+                return () => clearTimeout(timer2);
             }, 500);
-            return () => clearTimeout(timer);
+
+            return () => clearTimeout(timer1);
         }
     }, [lastSale]);
 
@@ -180,7 +189,7 @@ export function POSTerminal() {
                 customerData
             });
 
-            await salesService.createSale(
+            const saleResult = await salesService.createSale(
                 {
                     items,
                     total: calculateTotal(),
@@ -189,7 +198,7 @@ export function POSTerminal() {
                 customerData
             );
 
-            // Update stock for each product
+            // Update stock for each product (the stock adjustments are already registered in the service)
             for (const item of items) {
                 if (item.type === "product" && item.product) {
                     const newStock = item.product.stock - item.quantity;
@@ -197,9 +206,9 @@ export function POSTerminal() {
                 }
             }
 
-            // Prepare receipt data
+            // Prepare receipt data with the invoice number from database
             const receiptData: ReceiptData = {
-                invoiceNumber: `${Date.now().toString().slice(-8)}`,
+                invoiceNumber: saleResult.invoice_number || `${Date.now().toString().slice(-8)}`,
                 date: new Intl.DateTimeFormat("es-EC", {
                     year: "numeric",
                     month: "2-digit",

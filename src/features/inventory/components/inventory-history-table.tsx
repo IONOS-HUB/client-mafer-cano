@@ -20,7 +20,15 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { ArrowUp, ArrowDown, Loader2, ChevronLeft, ChevronRight, Search, Filter, X } from "lucide-react";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { ArrowUp, ArrowDown, Loader2, ChevronLeft, ChevronRight, Search, Filter, X, FileText } from "lucide-react";
+import { salesService } from "@/features/pos/service";
 
 interface AdjustmentWithProduct {
     id: string;
@@ -31,10 +39,26 @@ interface AdjustmentWithProduct {
     previous_stock: number;
     new_stock: number;
     created_at: string;
+    sale_id?: string | null; // ID de la venta relacionada
     products: {
         barcode: string;
         description: string;
     };
+}
+
+interface SaleDetails {
+    id: string;
+    invoice_number: string;
+    total: number;
+    payment_method: string;
+    customer_data: any;
+    created_at: string;
+    sale_items: Array<{
+        quantity: number;
+        unit_price: number;
+        products?: { description: string };
+        services?: { description: string };
+    }>;
 }
 
 export function InventoryHistoryTable() {
@@ -53,6 +77,11 @@ export function InventoryHistoryTable() {
 
     // Estado para disparar la recarga cuando se filtra
     const [triggerFetch, setTriggerFetch] = useState(0);
+
+    // Estado para el diálogo de detalles de factura
+    const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
+    const [saleDetails, setSaleDetails] = useState<SaleDetails | null>(null);
+    const [isLoadingSale, setIsLoadingSale] = useState(false);
 
     useEffect(() => {
         loadAdjustments();
@@ -92,6 +121,25 @@ export function InventoryHistoryTable() {
         setEndDate("");
         setPage(1);
         setTriggerFetch(prev => prev + 1);
+    };
+
+    const handleViewSale = async (saleId: string) => {
+        setSelectedSaleId(saleId);
+        setIsLoadingSale(true);
+        try {
+            const sale = await salesService.getSaleById(saleId);
+            // Obtener los items de la venta
+            const { data: items } = await salesService.getSaleItems(saleId);
+            setSaleDetails({
+                ...sale,
+                customer_data: sale.customer_data || null,
+                sale_items: items || []
+            } as SaleDetails);
+        } catch (error) {
+            console.error("Error loading sale details:", error);
+        } finally {
+            setIsLoadingSale(false);
+        }
     };
 
     const formatDate = (dateString: string) => {
@@ -190,6 +238,7 @@ export function InventoryHistoryTable() {
                                 <TableHead className="text-right">Stock Anterior</TableHead>
                                 <TableHead className="text-right">Stock Nuevo</TableHead>
                                 <TableHead>Motivo</TableHead>
+                                <TableHead className="text-center">Acciones</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -230,6 +279,19 @@ export function InventoryHistoryTable() {
                                     <TableCell className="max-w-xs truncate" title={adjustment.reason}>
                                         {adjustment.reason}
                                     </TableCell>
+                                    <TableCell className="text-center">
+                                        {adjustment.sale_id && (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => handleViewSale(adjustment.sale_id!)}
+                                                className="gap-2"
+                                            >
+                                                <FileText className="h-4 w-4" />
+                                                Ver Factura
+                                            </Button>
+                                        )}
+                                    </TableCell>
                                 </TableRow>
                             ))}
                         </TableBody>
@@ -268,6 +330,99 @@ export function InventoryHistoryTable() {
                     </div>
                 </div>
             )}
+
+            {/* Diálogo de detalles de factura */}
+            <Dialog open={selectedSaleId !== null} onOpenChange={(open) => !open && setSelectedSaleId(null)}>
+                <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Detalles de Factura</DialogTitle>
+                        <DialogDescription>
+                            Información completa de la venta
+                        </DialogDescription>
+                    </DialogHeader>
+                    {isLoadingSale ? (
+                        <div className="flex items-center justify-center py-8">
+                            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                        </div>
+                    ) : saleDetails ? (
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4 p-4 bg-muted rounded-lg">
+                                <div>
+                                    <p className="text-sm text-muted-foreground">Número de Factura</p>
+                                    <p className="font-semibold">{saleDetails.invoice_number}</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-muted-foreground">Fecha</p>
+                                    <p className="font-semibold">{formatDate(saleDetails.created_at)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-muted-foreground">Método de Pago</p>
+                                    <p className="font-semibold uppercase">
+                                        {saleDetails.payment_method === 'cash' ? 'Efectivo' :
+                                            saleDetails.payment_method === 'card' ? 'Tarjeta' : 'Transferencia'}
+                                    </p>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-muted-foreground">Total</p>
+                                    <p className="font-semibold text-lg">${saleDetails.total.toFixed(2)}</p>
+                                </div>
+                            </div>
+
+                            {saleDetails.customer_data && (
+                                <div className="p-4 bg-muted rounded-lg">
+                                    <h4 className="font-semibold mb-2">Datos del Cliente</h4>
+                                    <div className="grid grid-cols-2 gap-2 text-sm">
+                                        <div>
+                                            <span className="text-muted-foreground">Nombre:</span>
+                                            <span className="ml-2">{saleDetails.customer_data.name}</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-muted-foreground">RUC/CI:</span>
+                                            <span className="ml-2">{saleDetails.customer_data.identification}</span>
+                                        </div>
+                                        {saleDetails.customer_data.address && (
+                                            <div className="col-span-2">
+                                                <span className="text-muted-foreground">Dirección:</span>
+                                                <span className="ml-2">{saleDetails.customer_data.address}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            <div>
+                                <h4 className="font-semibold mb-2">Items</h4>
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Descripción</TableHead>
+                                            <TableHead className="text-right">Cantidad</TableHead>
+                                            <TableHead className="text-right">Precio Unit.</TableHead>
+                                            <TableHead className="text-right">Subtotal</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {saleDetails.sale_items.map((item, index) => (
+                                            <TableRow key={index}>
+                                                <TableCell>
+                                                    {item.products?.description || item.services?.description || 'Item'}
+                                                </TableCell>
+                                                <TableCell className="text-right">{item.quantity}</TableCell>
+                                                <TableCell className="text-right">${item.unit_price.toFixed(2)}</TableCell>
+                                                <TableCell className="text-right font-semibold">
+                                                    ${(item.quantity * item.unit_price).toFixed(2)}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        </div>
+                    ) : (
+                        <p className="text-center text-muted-foreground py-8">No se pudieron cargar los detalles</p>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

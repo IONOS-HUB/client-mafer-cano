@@ -17,6 +17,8 @@ export interface Sale {
     items: SaleItem[];
     total: number;
     payment_method: PaymentMethod;
+    invoice_number?: string; // Número de factura generado automáticamente
+    customer_data?: any; // Datos del cliente para facturación
     created_at: string;
 }
 
