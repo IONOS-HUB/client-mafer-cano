@@ -13,8 +13,8 @@ export function useScanDetection({
     minLength?: number;
     timeLimit?: number;
 }) {
-    const [buffer, setBuffer] = useState("");
-    const [lastKeyTime, setLastKeyTime] = useState(0);
+    const bufferRef = useRef("");
+    const lastKeyTimeRef = useRef(0);
     const onScanRef = useRef(onScan);
 
     // Keep the ref updated with the latest callback
@@ -24,31 +24,39 @@ export function useScanDetection({
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
+            // Ignore if user is typing in an input field
+            const target = e.target as HTMLElement;
+            if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+                return;
+            }
+
+            if (!e.key) return;
+
             const currentTime = Date.now();
-            const timeSinceLastKey = currentTime - lastKeyTime;
+            const timeSinceLastKey = currentTime - lastKeyTimeRef.current;
 
             // If too much time passed, reset buffer (it was probably manual typing)
             // Unless it's the very first character
-            if (buffer.length > 0 && timeSinceLastKey > timeLimit) {
-                setBuffer("");
+            if (bufferRef.current.length > 0 && timeSinceLastKey > timeLimit) {
+                bufferRef.current = "";
             }
 
-            setLastKeyTime(currentTime);
+            lastKeyTimeRef.current = currentTime;
 
             if (e.key === "Enter") {
-                if (buffer.length >= minLength) {
-                    onScanRef.current(buffer);
-                    setBuffer("");
+                if (bufferRef.current.length >= minLength) {
+                    onScanRef.current(bufferRef.current);
+                    bufferRef.current = "";
                     // Prevent default enter behavior (like form submission) if it was a scan
                     e.preventDefault();
                 }
             } else if (e.key.length === 1) {
                 // Only add printable characters
-                setBuffer((prev) => prev + e.key);
+                bufferRef.current += e.key;
             }
         };
 
         window.addEventListener("keydown", handleKeyDown);
         return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [buffer, lastKeyTime, minLength, timeLimit]);
+    }, [minLength, timeLimit]);
 }

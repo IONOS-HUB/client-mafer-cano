@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ShoppingCart, Package, BarChart3, LogOut } from "lucide-react";
+import { ShoppingCart, Package, BarChart3, LogOut, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { useRouter } from "next/navigation";
@@ -13,6 +13,7 @@ const navigation = [
     { name: "Punto de Venta", href: "/pos", icon: ShoppingCart },
     { name: "Productos y Servicios", href: "/products", icon: Package },
     { name: "Historial de Inventario", href: "/inventory", icon: BarChart3 },
+    { name: "Configuración", href: "/settings", icon: Settings },
 ];
 
 export default function DashboardLayout({

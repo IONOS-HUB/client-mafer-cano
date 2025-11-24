@@ -80,7 +80,10 @@ export function InvoiceDialog({
     // Payment State
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
     const [amountReceived, setAmountReceived] = useState<string>("");
-    const [change, setChange] = useState(0);
+
+    // Calcular cambio dinámicamente
+    const parsedAmount = parseFloat(amountReceived) || 0;
+    const change = Math.max(0, parsedAmount - total);
 
     const form = useForm<CustomerFormValues>({
         resolver: zodResolver(customerSchema),
@@ -102,24 +105,10 @@ export function InvoiceDialog({
             setStep("selection");
             setPaymentMethod("cash");
             setAmountReceived("");
-            setChange(0);
             setCustomerData(null);
             form.reset();
         }
     }, [isOpen, form]);
-
-    useEffect(() => {
-        if (amountReceived) {
-            const received = parseFloat(amountReceived);
-            if (!isNaN(received)) {
-                setChange(Math.max(0, received - total));
-            } else {
-                setChange(0);
-            }
-        } else {
-            setChange(0);
-        }
-    }, [amountReceived, total]);
 
     const handleSelectFinalConsumer = () => {
         setCustomerData(null);
@@ -401,6 +390,8 @@ export function InvoiceDialog({
                                                 className="pl-7 text-lg"
                                                 placeholder="0.00"
                                                 autoFocus
+                                                min="0"
+                                                step="0.01"
                                             />
                                         </div>
                                     </div>
@@ -420,13 +411,25 @@ export function InvoiceDialog({
                                     </div>
                                 </div>
 
-                                <div className="bg-zinc-100 dark:bg-zinc-800 p-4 rounded-lg flex justify-between items-center">
-                                    <span className="font-medium">Cambio a devolver:</span>
+                                <div className={cn(
+                                    "p-4 rounded-lg flex justify-between items-center",
+                                    parsedAmount < total
+                                        ? "bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900"
+                                        : "bg-green-50 dark:bg-green-950/30 border border-green-100 dark:border-green-900"
+                                )}>
+                                    <span className="font-medium">
+                                        {parsedAmount < total ? "Faltan:" : "Cambio a devolver:"}
+                                    </span>
                                     <span className={cn(
                                         "text-2xl font-bold",
-                                        change > 0 ? "text-green-600 dark:text-green-400" : "text-muted-foreground"
+                                        parsedAmount < total
+                                            ? "text-red-600 dark:text-red-400"
+                                            : "text-green-600 dark:text-green-400"
                                     )}>
-                                        ${change.toFixed(2)}
+                                        ${parsedAmount < total
+                                            ? (total - parsedAmount).toFixed(2)
+                                            : change.toFixed(2)
+                                        }
                                     </span>
                                 </div>
                             </div>

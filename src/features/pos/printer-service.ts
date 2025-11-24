@@ -127,4 +127,49 @@ export const printerService = {
             };
         }
     },
+    async printTestPage(): Promise<{ success: boolean; error?: string }> {
+        try {
+            const isOnline = await this.checkStatus();
+            if (!isOnline) {
+                return {
+                    success: false,
+                    error: "Servidor de impresión no disponible.",
+                };
+            }
+
+            const testData: PrintReceiptData = {
+                invoiceNumber: "TEST",
+                date: new Date().toLocaleString("es-EC"),
+                items: [{
+                    description: "PRUEBA DE CONEXION",
+                    quantity: 1,
+                    unitPrice: 0,
+                    subtotal: 0
+                }],
+                subtotal: 0,
+                total: 0,
+                paymentMethod: "cash",
+                businessInfo: {
+                    name: "SISTEMA POS",
+                    address: "Prueba de Impresora",
+                    phone: "OK"
+                }
+            };
+
+            const response = await fetch(`${PRINT_SERVER_URL}/print`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(testData),
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                return { success: false, error: error.error };
+            }
+
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: String(error) };
+        }
+    },
 };
