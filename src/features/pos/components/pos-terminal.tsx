@@ -6,7 +6,6 @@ import { Product, Service } from "@/features/products/types";
 import { CustomerData } from "../invoice-types";
 import { productService } from "@/features/products/service";
 import { salesService } from "../service";
-import { printerService } from "../printer-service";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +13,8 @@ import { useScanDetection } from "@/features/products/hooks/use-scan-detection";
 import { Trash2, ShoppingCart, DollarSign, Plus, PlayCircle, CheckCircle } from "lucide-react";
 import { AddItemDialog } from "./add-item-dialog";
 import { InvoiceDialog, PaymentDetails } from "./invoice-dialog";
+import { Receipt, ReceiptData } from "./receipt";
+import { useEffect } from "react";
 
 export function POSTerminal() {
     const [saleStarted, setSaleStarted] = useState(false);
@@ -21,6 +22,16 @@ export function POSTerminal() {
     const [isProcessing, setIsProcessing] = useState(false);
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
+    const [lastSale, setLastSale] = useState<ReceiptData | null>(null);
+
+    useEffect(() => {
+        if (lastSale) {
+            const timer = setTimeout(() => {
+                window.print();
+            }, 500);
+            return () => clearTimeout(timer);
+        }
+    }, [lastSale]);
 
     useScanDetection({
         onScan: async (code) => {
@@ -186,23 +197,38 @@ export function POSTerminal() {
                 }
             }
 
-            // Print receipt
-            toast.info("Imprimiendo factura...");
-            const printResult = await printerService.printReceipt(
-                items,
-                calculateTotal(),
-                paymentDetails?.method || "cash",
+            // Prepare receipt data
+            const receiptData: ReceiptData = {
+                invoiceNumber: `${Date.now().toString().slice(-8)}`,
+                date: new Intl.DateTimeFormat("es-EC", {
+                    year: "numeric",
+                    month: "2-digit",
+                    day: "2-digit",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                }).format(new Date()),
                 customerData,
-                paymentDetails?.amountReceived,
-                paymentDetails?.change
-            );
+                items: items.map((item) => ({
+                    description: item.product?.description || item.service?.description || "Item",
+                    quantity: item.quantity,
+                    unitPrice: item.unitPrice,
+                    subtotal: item.subtotal,
+                })),
+                subtotal: calculateTotal() / 1.15,
+                total: calculateTotal(),
+                paymentMethod: paymentDetails?.method || "cash",
+                amountReceived: paymentDetails?.amountReceived,
+                change: paymentDetails?.change,
+                businessInfo: {
+                    name: process.env.NEXT_PUBLIC_BUSINESS_NAME || "MAFER CANO",
+                    ruc: process.env.NEXT_PUBLIC_BUSINESS_RUC || "",
+                    address: process.env.NEXT_PUBLIC_BUSINESS_ADDRESS || "",
+                    phone: process.env.NEXT_PUBLIC_BUSINESS_PHONE || "",
+                },
+            };
 
-            if (!printResult.success) {
-                toast.error(`Error al imprimir: ${printResult.error}`);
-                toast.info("La venta se completó pero no se pudo imprimir");
-            } else {
-                toast.success("Venta completada e impresa exitosamente");
-            }
+            setLastSale(receiptData);
+            toast.success("Venta completada. Imprimiendo ticket...");
 
             setItems([]);
             setSaleStarted(false);
@@ -391,6 +417,8 @@ export function POSTerminal() {
                 onConfirmWithData={(customerData, paymentDetails) => handleCompleteSale(customerData, paymentDetails)}
                 total={total}
             />
+
+            <Receipt data={lastSale} />
         </div>
     );
 }

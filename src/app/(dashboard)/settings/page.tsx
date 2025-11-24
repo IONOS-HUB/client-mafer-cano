@@ -4,36 +4,41 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Printer, CheckCircle2, XCircle, RefreshCw } from "lucide-react";
 import { useState, useEffect } from "react";
-import { printerService } from "@/features/pos/printer-service";
+import { Receipt, ReceiptData } from "@/features/pos/components/receipt";
 
 export default function SettingsPage() {
-    const [printerStatus, setPrinterStatus] = useState<"checking" | "connected" | "disconnected">("checking");
     const [isPrinting, setIsPrinting] = useState(false);
+    const [testData, setTestData] = useState<ReceiptData | null>(null);
 
-    useEffect(() => {
-        checkPrinter();
-    }, []);
 
-    const checkPrinter = async () => {
-        setPrinterStatus("checking");
-        const isOnline = await printerService.checkStatus();
-        setPrinterStatus(isOnline ? "connected" : "disconnected");
-    };
 
-    const handlePrintTest = async () => {
+    const handlePrintTest = () => {
         setIsPrinting(true);
-        try {
-            const result = await printerService.printTestPage();
-            if (result.success) {
-                toast.success("Página de prueba enviada");
-            } else {
-                toast.error("Error al imprimir: " + result.error);
+        const testData: ReceiptData = {
+            invoiceNumber: "TEST-001",
+            date: new Date().toLocaleString("es-EC"),
+            items: [{
+                description: "PRUEBA DE IMPRESIÓN",
+                quantity: 1,
+                unitPrice: 0.00,
+                subtotal: 0.00
+            }],
+            subtotal: 0.00,
+            total: 0.00,
+            paymentMethod: "cash",
+            businessInfo: {
+                name: "SISTEMA POS",
+                address: "Prueba de Configuración",
+                phone: "---"
             }
-        } catch (error) {
-            toast.error("Error de conexión");
-        } finally {
+        };
+        setTestData(testData);
+
+        // Small delay to allow state to update and render receipt
+        setTimeout(() => {
+            window.print();
             setIsPrinting(false);
-        }
+        }, 100);
     };
 
     return (
@@ -49,28 +54,14 @@ export default function SettingsPage() {
                             Impresora Térmica
                         </h2>
                         <p className="text-zinc-500 dark:text-zinc-400 mt-1">
-                            Estado de conexión con el servidor de impresión local.
+                            La impresión se realiza directamente desde el navegador (CTRL + P).
                         </p>
                     </div>
                     <div className="flex items-center gap-2">
-                        {printerStatus === "checking" && (
-                            <span className="flex items-center gap-1.5 text-zinc-500 text-sm bg-zinc-100 dark:bg-zinc-800 px-3 py-1 rounded-full">
-                                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                                Verificando...
-                            </span>
-                        )}
-                        {printerStatus === "connected" && (
-                            <span className="flex items-center gap-1.5 text-emerald-600 text-sm bg-emerald-50 dark:bg-emerald-950/30 px-3 py-1 rounded-full border border-emerald-200 dark:border-emerald-800">
-                                <CheckCircle2 className="h-3.5 w-3.5" />
-                                Conectada
-                            </span>
-                        )}
-                        {printerStatus === "disconnected" && (
-                            <span className="flex items-center gap-1.5 text-red-600 text-sm bg-red-50 dark:bg-red-950/30 px-3 py-1 rounded-full border border-red-200 dark:border-red-800">
-                                <XCircle className="h-3.5 w-3.5" />
-                                Desconectada
-                            </span>
-                        )}
+                        <span className="flex items-center gap-1.5 text-emerald-600 text-sm bg-emerald-50 dark:bg-emerald-950/30 px-3 py-1 rounded-full border border-emerald-200 dark:border-emerald-800">
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            Navegador Listo
+                        </span>
                     </div>
                 </div>
 
@@ -84,17 +75,9 @@ export default function SettingsPage() {
                         </div>
                         <div className="flex gap-2">
                             <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={checkPrinter}
-                                title="Verificar conexión nuevamente"
-                            >
-                                <RefreshCw className={`h-4 w-4 ${printerStatus === 'checking' ? 'animate-spin' : ''}`} />
-                            </Button>
-                            <Button
                                 variant="secondary"
                                 onClick={handlePrintTest}
-                                disabled={isPrinting || printerStatus !== "connected"}
+                                disabled={isPrinting}
                             >
                                 <Printer className="mr-2 h-4 w-4" />
                                 {isPrinting ? "Imprimiendo..." : "Imprimir Prueba"}
@@ -103,6 +86,8 @@ export default function SettingsPage() {
                     </div>
                 </div>
             </div>
+
+            <Receipt data={testData} />
         </div>
     );
 }
