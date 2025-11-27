@@ -26,19 +26,56 @@ export function POSTerminal() {
 
     useEffect(() => {
         if (lastSale) {
-            // Imprimir dos veces con un delay entre cada impresión
-            const timer1 = setTimeout(() => {
+            // Función para esperar a que las imágenes se carguen
+            const waitForImagesToLoad = () => {
+                return new Promise<void>((resolve) => {
+                    const images = document.querySelectorAll('.print-only img');
+
+                    if (images.length === 0) {
+                        // Si no hay imágenes, resolver inmediatamente
+                        resolve();
+                        return;
+                    }
+
+                    let loadedCount = 0;
+                    const totalImages = images.length;
+
+                    const checkAllLoaded = () => {
+                        loadedCount++;
+                        if (loadedCount === totalImages) {
+                            resolve();
+                        }
+                    };
+
+                    images.forEach((img) => {
+                        const image = img as HTMLImageElement;
+                        if (image.complete) {
+                            // Si la imagen ya está cargada
+                            checkAllLoaded();
+                        } else {
+                            // Esperar a que se cargue
+                            image.onload = checkAllLoaded;
+                            image.onerror = checkAllLoaded; // También resolver en caso de error
+                        }
+                    });
+
+                    // Timeout de seguridad: si después de 3 segundos no se cargan, imprimir de todas formas
+                    setTimeout(() => {
+                        resolve();
+                    }, 3000);
+                });
+            };
+
+            // Esperar a que las imágenes se carguen antes de imprimir
+            waitForImagesToLoad().then(() => {
+                // Primera impresión
                 window.print();
 
                 // Segunda impresión después de 2 segundos
-                const timer2 = setTimeout(() => {
+                setTimeout(() => {
                     window.print();
                 }, 2000);
-
-                return () => clearTimeout(timer2);
-            }, 500);
-
-            return () => clearTimeout(timer1);
+            });
         }
     }, [lastSale]);
 

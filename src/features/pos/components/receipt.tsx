@@ -143,7 +143,7 @@ export const Receipt: React.FC<ReceiptProps> = ({ data }) => {
 
                 {/* Payment Method */}
                 <div className="mb-6 text-base">
-                    <p className="uppercase">PAGO: <span>{data.paymentMethod === 'cash' ? 'EFECTIVO' : 'TARJETA'}</span></p>
+                    <p className="uppercase">PAGO: <span>{data.paymentMethod === 'cash' ? 'EFECTIVO' : data.paymentMethod === 'transfer' ? 'TRANSFERENCIA' : 'TARJETA'}</span></p>
                     {data.amountReceived !== undefined && (
                         <p className="mt-1">RECIBIDO: <span>${data.amountReceived.toFixed(2)}</span></p>
                     )}
