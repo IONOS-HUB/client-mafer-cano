@@ -22,13 +22,15 @@ export interface ReceiptData {
         address?: string;
         phone?: string;
     };
+    isDuplicate?: boolean;
 }
 
 interface ReceiptProps {
     data: ReceiptData | null;
+    printId?: string;
 }
 
-export const Receipt: React.FC<ReceiptProps> = ({ data }) => {
+export const Receipt: React.FC<ReceiptProps> = ({ data, printId = "receipt-print" }) => {
     if (!data) return null;
 
     // Calculate tax (assuming 15% included in total)
@@ -36,34 +38,42 @@ export const Receipt: React.FC<ReceiptProps> = ({ data }) => {
     const subtotal = data.total / (1 + taxRate);
     const tax = data.total - subtotal;
 
+    const uniqueId = `receipt-${printId}`;
+    
     return (
-        <div className="hidden print:block print:absolute print:top-0 print:left-0 print:w-full print:bg-white print:text-base print:font-mono text-black print-only">
+        <>
             <style jsx global>{`
                 @media print {
                     @page {
                         size: 80mm auto;
-                        margin: 0;
+                        margin: 0 !important;
+                        padding: 0 !important;
                     }
                     body * {
-                        visibility: hidden;
+                        visibility: hidden !important;
                     }
-                    .print-only, .print-only * {
-                        visibility: visible;
+                    [data-receipt-id="${uniqueId}"], [data-receipt-id="${uniqueId}"] * {
+                        visibility: visible !important;
                     }
-                    .print-only {
-                        position: absolute;
-                        left: 0;
-                        top: 0;
-                        width: 100%;
-                        font-family: 'Courier New', Courier, monospace;
-                        font-weight: 700;
-                        font-size: 16px; /* Increased base font size */
+                    [data-receipt-id="${uniqueId}"] {
+                        position: absolute !important;
+                        left: 0 !important;
+                        top: 0 !important;
+                        width: 100% !important;
+                        font-family: 'Courier New', Courier, monospace !important;
+                        font-weight: 700 !important;
+                        font-size: 16px !important;
                         color: black !important;
-                        -webkit-print-color-adjust: exact;
-                        print-color-adjust: exact;
+                        background: white !important;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
                     }
                 }
             `}</style>
+            <div 
+                className="hidden print:block print:absolute print:top-0 print:left-0 print:w-full print:bg-white print:text-base print:font-mono text-black print-only"
+                data-receipt-id={uniqueId}
+            >
 
             <div className="w-full pl-0 pr-4 pt-4 pb-8 text-left">
                 {/* Logo */}
@@ -77,9 +87,9 @@ export const Receipt: React.FC<ReceiptProps> = ({ data }) => {
 
                 {/* Header Info */}
                 <div className="text-center mb-4 uppercase tracking-wide text-base font-bold">
-                    <p>RUC: 1003573167001</p>
-                    <p className="mt-1">Dir: Av. Camilo Ponce y Av. Ricardo Sánchez</p>
-                    <p className="mt-1">Tel: 0998007892</p>
+                    {data.businessInfo.ruc && <p>RUC: {data.businessInfo.ruc}</p>}
+                    {data.businessInfo.address && <p className="mt-1">Dir: {data.businessInfo.address}</p>}
+                    {data.businessInfo.phone && <p className="mt-1">Tel: {data.businessInfo.phone}</p>}
                 </div>
 
                 {/* Separator */}
@@ -88,6 +98,9 @@ export const Receipt: React.FC<ReceiptProps> = ({ data }) => {
                 {/* Invoice Details */}
                 <div className="text-center mb-2">
                     <p className="text-lg">FACTURA ELECTRONICA</p>
+                    {data.isDuplicate && (
+                        <p className="text-base mt-1 font-bold border-2 border-black py-1 px-2 inline-block">DUPLICADO</p>
+                    )}
                     <p className="text-xl mt-1">No. {data.invoiceNumber}</p>
                     <p className="text-base mt-1">Fecha: {data.date}</p>
                 </div>
@@ -167,6 +180,7 @@ export const Receipt: React.FC<ReceiptProps> = ({ data }) => {
                     <p className="mt-4 text-base uppercase tracking-wider">GRACIAS POR SU COMPRA</p>
                 </div>
             </div>
-        </div>
+            </div>
+        </>
     );
 };

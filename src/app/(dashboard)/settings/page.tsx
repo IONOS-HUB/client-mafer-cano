@@ -16,7 +16,13 @@ export default function SettingsPage() {
         setIsPrinting(true);
         const testData: ReceiptData = {
             invoiceNumber: "TEST-001",
-            date: new Date().toLocaleString("es-EC"),
+            date: new Intl.DateTimeFormat("es-EC", {
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+            }).format(new Date()),
             items: [{
                 description: "PRUEBA DE IMPRESIÓN",
                 quantity: 1,
@@ -27,9 +33,10 @@ export default function SettingsPage() {
             total: 0.00,
             paymentMethod: "cash",
             businessInfo: {
-                name: "SISTEMA POS",
-                address: "Prueba de Configuración",
-                phone: "---"
+                name: process.env.NEXT_PUBLIC_BUSINESS_NAME || "MAFER CANO",
+                ruc: process.env.NEXT_PUBLIC_BUSINESS_RUC || "1003573167001",
+                address: process.env.NEXT_PUBLIC_BUSINESS_ADDRESS || "Av. Camilo Ponce y Av. Ricardo Sánchez",
+                phone: process.env.NEXT_PUBLIC_BUSINESS_PHONE || "0998007892",
             }
         };
         setTestData(testData);
@@ -87,7 +94,7 @@ export default function SettingsPage() {
                 </div>
             </div>
 
-            <Receipt data={testData} />
+            <Receipt data={testData} printId="test-receipt-print" />
         </div>
     );
 }

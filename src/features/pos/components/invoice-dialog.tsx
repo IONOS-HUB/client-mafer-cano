@@ -274,8 +274,8 @@ export function InvoiceDialog({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[600px]">
-        <DialogHeader>
-          <DialogTitle className="text-2xl">
+        <DialogHeader className="pb-4 border-b">
+          <DialogTitle className="text-2xl font-bold">
             {step === "selection" && "Tipo de Factura"}
             {step === "data_entry" && "Datos del Cliente"}
             {step === "payment" && "Pago y Cambio"}
@@ -284,12 +284,17 @@ export function InvoiceDialog({
 
         {/* Resumen de Total siempre visible en Payment */}
         {step === "payment" && (
-          <div className="bg-zinc-50 dark:bg-zinc-900 p-6 rounded-xl border border-zinc-100 dark:border-zinc-800 mb-4">
+          <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/30 dark:to-emerald-900/20 p-6 rounded-xl border-2 border-emerald-200 dark:border-emerald-800 shadow-lg mb-6">
             <div className="flex justify-between items-center">
-              <span className="text-lg font-medium text-muted-foreground">
-                Total a Pagar
-              </span>
-              <span className="text-4xl font-bold text-zinc-900 dark:text-white">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300 uppercase tracking-wide">
+                  Total a Pagar
+                </p>
+                <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                  Monto total de la factura
+                </p>
+              </div>
+              <span className="text-4xl font-bold text-emerald-900 dark:text-emerald-100">
                 ${total.toFixed(2)}
               </span>
             </div>
@@ -298,18 +303,18 @@ export function InvoiceDialog({
 
         {step === "selection" && (
           <div className="space-y-6 py-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Button
                 variant="outline"
-                className="h-40 flex flex-col gap-4 hover:bg-green-50 hover:border-green-500 dark:hover:bg-green-950/30 transition-all border-2"
+                className="h-44 flex flex-col gap-4 hover:bg-green-50 hover:border-green-500 dark:hover:bg-green-950/30 transition-all border-2 rounded-xl shadow-sm hover:shadow-md"
                 onClick={handleSelectFinalConsumer}
               >
-                <div className="h-16 w-16 rounded-full bg-green-100 dark:bg-green-900/50 flex items-center justify-center">
-                  <User className="h-8 w-8 text-green-600 dark:text-green-400" />
+                <div className="h-20 w-20 rounded-full bg-gradient-to-br from-green-100 to-green-200 dark:from-green-900/50 dark:to-green-800/50 flex items-center justify-center shadow-sm">
+                  <User className="h-10 w-10 text-green-600 dark:text-green-400" />
                 </div>
-                <div className="text-center">
-                  <p className="font-bold text-lg">Consumidor Final</p>
-                  <p className="text-sm text-muted-foreground">
+                <div className="text-center space-y-1">
+                  <p className="font-bold text-xl text-green-900 dark:text-green-100">Consumidor Final</p>
+                  <p className="text-sm text-green-700 dark:text-green-300">
                     Venta rápida sin datos
                   </p>
                 </div>
@@ -317,15 +322,15 @@ export function InvoiceDialog({
 
               <Button
                 variant="outline"
-                className="h-40 flex flex-col gap-4 hover:bg-blue-50 hover:border-blue-500 dark:hover:bg-blue-950/30 transition-all border-2"
+                className="h-44 flex flex-col gap-4 hover:bg-blue-50 hover:border-blue-500 dark:hover:bg-blue-950/30 transition-all border-2 rounded-xl shadow-sm hover:shadow-md"
                 onClick={handleSelectWithData}
               >
-                <div className="h-16 w-16 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
-                  <FileText className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+                <div className="h-20 w-20 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/50 dark:to-blue-800/50 flex items-center justify-center shadow-sm">
+                  <FileText className="h-10 w-10 text-blue-600 dark:text-blue-400" />
                 </div>
-                <div className="text-center">
-                  <p className="font-bold text-lg">Con Datos</p>
-                  <p className="text-sm text-muted-foreground">RUC o Cédula</p>
+                <div className="text-center space-y-1">
+                  <p className="font-bold text-xl text-blue-900 dark:text-blue-100">Con Datos</p>
+                  <p className="text-sm text-blue-700 dark:text-blue-300">RUC o Cédula</p>
                 </div>
               </Button>
             </div>
@@ -498,47 +503,78 @@ export function InvoiceDialog({
         {step === "payment" && (
           <div className="space-y-6">
             {/* Selección de Método de Pago */}
-            <div className="grid grid-cols-3 gap-3">
-              <Button
-                variant={paymentMethod === "cash" ? "default" : "outline"}
-                onClick={() => setPaymentMethod("cash")}
-                className="h-20 flex flex-col gap-1"
-              >
-                <Banknote className="h-6 w-6" />
-                Efectivo
-              </Button>
-              <Button
-                variant={paymentMethod === "card" ? "default" : "outline"}
-                onClick={() => setPaymentMethod("card")}
-                className="h-20 flex flex-col gap-1"
-              >
-                <CreditCard className="h-6 w-6" />
-                Tarjeta
-              </Button>
-              <Button
-                variant={paymentMethod === "transfer" ? "default" : "outline"}
-                onClick={() => setPaymentMethod("transfer")}
-                className="h-20 flex flex-col gap-1"
-              >
-                <div className="font-bold text-lg">🏦</div>
-                Transferencia
-              </Button>
+            <div className="space-y-3">
+              <label className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                Método de Pago
+              </label>
+              <div className="grid grid-cols-3 gap-4">
+                <Button
+                  variant={paymentMethod === "cash" ? "default" : "outline"}
+                  onClick={() => setPaymentMethod("cash")}
+                  className={cn(
+                    "h-24 flex flex-col gap-2 rounded-xl transition-all shadow-sm",
+                    paymentMethod === "cash" 
+                      ? "bg-emerald-600 hover:bg-emerald-700 text-white border-2 border-emerald-700 shadow-md" 
+                      : "hover:bg-emerald-50 hover:border-emerald-300 dark:hover:bg-emerald-950/20"
+                  )}
+                >
+                  <Banknote className={cn(
+                    "h-7 w-7",
+                    paymentMethod === "cash" ? "text-white" : "text-emerald-600 dark:text-emerald-400"
+                  )} />
+                  <span className="font-semibold">Efectivo</span>
+                </Button>
+                <Button
+                  variant={paymentMethod === "card" ? "default" : "outline"}
+                  onClick={() => setPaymentMethod("card")}
+                  className={cn(
+                    "h-24 flex flex-col gap-2 rounded-xl transition-all shadow-sm",
+                    paymentMethod === "card" 
+                      ? "bg-blue-600 hover:bg-blue-700 text-white border-2 border-blue-700 shadow-md" 
+                      : "hover:bg-blue-50 hover:border-blue-300 dark:hover:bg-blue-950/20"
+                  )}
+                >
+                  <CreditCard className={cn(
+                    "h-7 w-7",
+                    paymentMethod === "card" ? "text-white" : "text-blue-600 dark:text-blue-400"
+                  )} />
+                  <span className="font-semibold">Tarjeta</span>
+                </Button>
+                <Button
+                  variant={paymentMethod === "transfer" ? "default" : "outline"}
+                  onClick={() => setPaymentMethod("transfer")}
+                  className={cn(
+                    "h-24 flex flex-col gap-2 rounded-xl transition-all shadow-sm",
+                    paymentMethod === "transfer" 
+                      ? "bg-purple-600 hover:bg-purple-700 text-white border-2 border-purple-700 shadow-md" 
+                      : "hover:bg-purple-50 hover:border-purple-300 dark:hover:bg-purple-950/20"
+                  )}
+                >
+                  <div className={cn(
+                    "text-2xl",
+                    paymentMethod === "transfer" ? "" : "opacity-70"
+                  )}>🏦</div>
+                  <span className="font-semibold">Transferencia</span>
+                </Button>
+              </div>
             </div>
 
             {paymentMethod === "cash" && (
-              <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Monto Recibido</label>
+              <div className="space-y-5 animate-in fade-in slide-in-from-top-2">
+                <div className="space-y-3">
+                  <label className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                    Monto Recibido
+                  </label>
                   <div className="flex gap-2">
                     <div className="relative flex-1">
-                      <span className="absolute left-3 top-2.5 text-muted-foreground">
+                      <span className="absolute left-4 top-3.5 text-lg font-medium text-muted-foreground">
                         $
                       </span>
                       <Input
                         type="number"
                         value={amountReceived}
                         onChange={(e) => setAmountReceived(e.target.value)}
-                        className="pl-7 text-lg"
+                        className="pl-9 text-xl font-semibold h-12 rounded-lg border-2 focus:border-emerald-500"
                         placeholder="0.00"
                         autoFocus
                         min="0"
@@ -554,9 +590,9 @@ export function InvoiceDialog({
                         variant="outline"
                         size="sm"
                         onClick={() => setAmountReceived(amount.toString())}
-                        className="flex-1"
+                        className="flex-1 hover:bg-emerald-50 hover:border-emerald-400 hover:text-emerald-700 dark:hover:bg-emerald-950/20 rounded-lg font-medium"
                       >
-                        ${amount}
+                        ${amount.toFixed(2)}
                       </Button>
                     ))}
                   </div>
@@ -564,18 +600,23 @@ export function InvoiceDialog({
 
                 <div
                   className={cn(
-                    "p-4 rounded-lg flex justify-between items-center",
+                    "p-5 rounded-xl flex justify-between items-center border-2 shadow-sm transition-all",
                     parsedAmount < total
-                      ? "bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900"
-                      : "bg-green-50 dark:bg-green-950/30 border border-green-100 dark:border-green-900"
+                      ? "bg-gradient-to-br from-red-50 to-red-100/50 dark:from-red-950/30 dark:to-red-900/20 border-red-200 dark:border-red-900"
+                      : "bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-950/30 dark:to-green-900/20 border-green-200 dark:border-green-900"
                   )}
                 >
-                  <span className="font-medium">
-                    {parsedAmount < total ? "Faltan:" : "Cambio a devolver:"}
-                  </span>
+                  <div className="space-y-1">
+                    <span className="text-sm font-semibold uppercase tracking-wide block">
+                      {parsedAmount < total ? "Faltan:" : "Cambio a devolver:"}
+                    </span>
+                    <span className="text-xs text-muted-foreground block">
+                      {parsedAmount < total ? "El monto recibido es menor al total" : "Monto adicional a devolver"}
+                    </span>
+                  </div>
                   <span
                     className={cn(
-                      "text-2xl font-bold",
+                      "text-3xl font-bold",
                       parsedAmount < total
                         ? "text-red-600 dark:text-red-400"
                         : "text-green-600 dark:text-green-400"
@@ -602,7 +643,7 @@ export function InvoiceDialog({
               </Button>
               <Button
                 onClick={handleConfirmPayment}
-                className="flex-[2] bg-green-600 hover:bg-green-700 text-white"
+                className="flex-[2] bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-lg hover:shadow-xl transition-all rounded-lg h-12 text-base font-semibold"
                 disabled={
                   paymentMethod === "cash" &&
                   parseFloat(amountReceived || "0") < total

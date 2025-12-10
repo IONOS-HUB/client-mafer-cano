@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, Package, Wrench } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 interface AddItemDialogProps {
@@ -90,19 +91,19 @@ export function AddItemDialog({
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-[700px] max-h-[80vh]">
-                <DialogHeader>
-                    <DialogTitle>Agregar Producto o Servicio</DialogTitle>
+                <DialogHeader className="pb-4 border-b">
+                    <DialogTitle className="text-2xl font-bold">Agregar Producto o Servicio</DialogTitle>
                 </DialogHeader>
 
-                <div className="space-y-4">
+                <div className="space-y-5 py-2">
                     {/* Search */}
                     <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                         <Input
                             placeholder="Buscar por nombre o código..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-10"
+                            className="pl-11 h-11 rounded-lg border-2 focus:border-primary"
                         />
                     </div>
 
@@ -134,22 +135,28 @@ export function AddItemDialog({
                                     filteredProducts.map((product) => (
                                         <div
                                             key={product.id}
-                                            className="flex items-center justify-between p-3 border rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                                            className="flex items-center justify-between p-4 border-2 rounded-xl hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-100/50 dark:hover:from-blue-950/20 dark:hover:to-blue-900/10 hover:border-blue-300 dark:hover:border-blue-700 transition-all shadow-sm"
                                         >
-                                            <div className="flex-1">
-                                                <p className="font-medium">{product.description}</p>
-                                                <p className="text-sm text-muted-foreground">
-                                                    Código: {product.barcode} | Stock: {product.stock}
-                                                </p>
+                                            <div className="flex-1 space-y-1">
+                                                <p className="font-semibold text-base text-slate-900 dark:text-slate-100">{product.description}</p>
+                                                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                                                    <span>Código: <span className="font-medium">{product.barcode}</span></span>
+                                                    <span>•</span>
+                                                    <span>Stock: <span className={cn(
+                                                        "font-medium",
+                                                        product.stock > 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                                                    )}>{product.stock}</span></span>
+                                                </div>
                                             </div>
-                                            <div className="flex items-center gap-3">
-                                                <span className="font-semibold text-green-600">
+                                            <div className="flex items-center gap-4">
+                                                <span className="font-bold text-lg text-emerald-600 dark:text-emerald-400">
                                                     ${product.price.toFixed(2)}
                                                 </span>
                                                 <Button
                                                     size="sm"
                                                     onClick={() => handleAddProduct(product)}
                                                     disabled={product.stock <= 0}
+                                                    className="rounded-lg font-semibold shadow-sm hover:shadow-md"
                                                 >
                                                     Agregar
                                                 </Button>
@@ -175,29 +182,33 @@ export function AddItemDialog({
                                     filteredServices.map((service) => (
                                         <div
                                             key={service.id}
-                                            className="flex items-center justify-between p-3 border rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                                            className="flex items-center justify-between p-4 border-2 rounded-xl hover:bg-gradient-to-r hover:from-purple-50 hover:to-purple-100/50 dark:hover:from-purple-950/20 dark:hover:to-purple-900/10 hover:border-purple-300 dark:hover:border-purple-700 transition-all shadow-sm"
                                         >
                                             <div className="flex-1">
-                                                <p className="font-medium">{service.description}</p>
+                                                <p className="font-semibold text-base text-slate-900 dark:text-slate-100">{service.description}</p>
                                             </div>
-                                            <div className="flex items-center gap-2">
-                                                <Input
-                                                    type="number"
-                                                    placeholder="Precio"
-                                                    value={servicePrice[service.id] || ""}
-                                                    onChange={(e) =>
-                                                        setServicePrice({
-                                                            ...servicePrice,
-                                                            [service.id]: parseFloat(e.target.value) || 0,
-                                                        })
-                                                    }
-                                                    className="w-28"
-                                                    step="0.01"
-                                                    min="0"
-                                                />
+                                            <div className="flex items-center gap-3">
+                                                <div className="relative">
+                                                    <span className="absolute left-3 top-2.5 text-sm text-muted-foreground">$</span>
+                                                    <Input
+                                                        type="number"
+                                                        placeholder="0.00"
+                                                        value={servicePrice[service.id] || ""}
+                                                        onChange={(e) =>
+                                                            setServicePrice({
+                                                                ...servicePrice,
+                                                                [service.id]: parseFloat(e.target.value) || 0,
+                                                            })
+                                                        }
+                                                        className="w-32 pl-7 border-2 focus:border-purple-500 rounded-lg"
+                                                        step="0.01"
+                                                        min="0"
+                                                    />
+                                                </div>
                                                 <Button
                                                     size="sm"
                                                     onClick={() => handleAddService(service)}
+                                                    className="rounded-lg font-semibold shadow-sm hover:shadow-md bg-purple-600 hover:bg-purple-700"
                                                 >
                                                     Agregar
                                                 </Button>
