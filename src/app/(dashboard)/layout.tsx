@@ -8,6 +8,7 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import Image from "next/image";
 
 const navigation = [
     { name: "Punto de Venta", href: "/pos", icon: ShoppingCart },
@@ -43,9 +44,7 @@ export default function DashboardLayout({
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex items-center justify-between h-16">
                         <div className="flex items-center">
-                            <h1 className="text-2xl font-bold text-zinc-900 dark:text-white">
-                                POS System
-                            </h1>
+                            <Image src="/logo/mafercano.png" alt="Logo" width={100} height={100} />
                         </div>
                         <div className="flex items-center gap-4">
                             <nav className="flex space-x-1">
