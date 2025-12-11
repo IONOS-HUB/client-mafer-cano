@@ -1,9 +1,8 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
-import { Printer, CheckCircle2, XCircle, RefreshCw } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Printer, CheckCircle2 } from "lucide-react";
+import { useState } from "react";
 import { Receipt, ReceiptData } from "@/features/pos/components/receipt";
 
 export default function SettingsPage() {

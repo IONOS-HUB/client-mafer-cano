@@ -284,7 +284,7 @@ export function InvoiceDialog({
 
         {/* Resumen de Total siempre visible en Payment */}
         {step === "payment" && (
-          <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/30 dark:to-emerald-900/20 p-6 rounded-xl border-2 border-emerald-200 dark:border-emerald-800 shadow-lg mb-6">
+          <div className="bg-linear-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/30 dark:to-emerald-900/20 p-6 rounded-xl border-2 border-emerald-200 dark:border-emerald-800 shadow-lg mb-6">
             <div className="flex justify-between items-center">
               <div className="space-y-1">
                 <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300 uppercase tracking-wide">
@@ -309,7 +309,7 @@ export function InvoiceDialog({
                 className="h-44 flex flex-col gap-4 hover:bg-green-50 hover:border-green-500 dark:hover:bg-green-950/30 transition-all border-2 rounded-xl shadow-sm hover:shadow-md"
                 onClick={handleSelectFinalConsumer}
               >
-                <div className="h-20 w-20 rounded-full bg-gradient-to-br from-green-100 to-green-200 dark:from-green-900/50 dark:to-green-800/50 flex items-center justify-center shadow-sm">
+                <div className="h-20 w-20 rounded-full bg-linear-to-br from-green-100 to-green-200 dark:from-green-900/50 dark:to-green-800/50 flex items-center justify-center shadow-sm">
                   <User className="h-10 w-10 text-green-600 dark:text-green-400" />
                 </div>
                 <div className="text-center space-y-1">
@@ -325,7 +325,7 @@ export function InvoiceDialog({
                 className="h-44 flex flex-col gap-4 hover:bg-blue-50 hover:border-blue-500 dark:hover:bg-blue-950/30 transition-all border-2 rounded-xl shadow-sm hover:shadow-md"
                 onClick={handleSelectWithData}
               >
-                <div className="h-20 w-20 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/50 dark:to-blue-800/50 flex items-center justify-center shadow-sm">
+                <div className="h-20 w-20 rounded-full bg-linear-to-br from-blue-100 to-blue-200 dark:from-blue-900/50 dark:to-blue-800/50 flex items-center justify-center shadow-sm">
                   <FileText className="h-10 w-10 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div className="text-center space-y-1">
@@ -602,8 +602,8 @@ export function InvoiceDialog({
                   className={cn(
                     "p-5 rounded-xl flex justify-between items-center border-2 shadow-sm transition-all",
                     parsedAmount < total
-                      ? "bg-gradient-to-br from-red-50 to-red-100/50 dark:from-red-950/30 dark:to-red-900/20 border-red-200 dark:border-red-900"
-                      : "bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-950/30 dark:to-green-900/20 border-green-200 dark:border-green-900"
+                      ? "bg-linear-to-br from-red-50 to-red-100/50 dark:from-red-950/30 dark:to-red-900/20 border-red-200 dark:border-red-900"
+                      : "bg-linear-to-br from-green-50 to-green-100/50 dark:from-green-950/30 dark:to-green-900/20 border-green-200 dark:border-green-900"
                   )}
                 >
                   <div className="space-y-1">
@@ -643,7 +643,7 @@ export function InvoiceDialog({
               </Button>
               <Button
                 onClick={handleConfirmPayment}
-                className="flex-[2] bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-lg hover:shadow-xl transition-all rounded-lg h-12 text-base font-semibold"
+                className="flex-2 bg-linear-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-lg hover:shadow-xl transition-all rounded-lg h-12 text-base font-semibold"
                 disabled={
                   paymentMethod === "cash" &&
                   parseFloat(amountReceived || "0") < total

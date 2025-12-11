@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { inventoryService } from "../service";
 import {
     Table,
@@ -27,9 +27,10 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowUp, ArrowDown, Loader2, ChevronLeft, ChevronRight, Search, Filter, X, FileText, User, Printer } from "lucide-react";
+import { ArrowUp, ArrowDown, Loader2, ChevronLeft, ChevronRight, Search, Filter, X, FileText, User, Printer, Calendar, Package, TrendingUp, TrendingDown } from "lucide-react";
 import { salesService } from "@/features/pos/service";
 import { Receipt, ReceiptData } from "@/features/pos/components/receipt";
+import { CustomerData } from "@/features/pos/invoice-types";
 import { toast } from "sonner";
 
 interface AdjustmentWithProduct {
@@ -53,7 +54,15 @@ interface SaleDetails {
     invoice_number: string;
     total: number;
     payment_method: string;
-    customer_data: any;
+    customer_data?: {
+        name?: string;
+        business_name?: string;
+        identification?: string;
+        address?: string;
+        identification_type?: string;
+        email?: string;
+        phone?: string;
+    } | null;
     created_at: string;
     sale_items: Array<{
         quantity: number;
@@ -76,9 +85,7 @@ export function InventoryHistoryTable() {
     const [type, setType] = useState("all");
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
-
-    // Estado para disparar la recarga cuando se filtra
-    const [triggerFetch, setTriggerFetch] = useState(0);
+    const [debouncedSearch, setDebouncedSearch] = useState("");
 
     // Estado para el diálogo de detalles de factura
     const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
@@ -86,15 +93,21 @@ export function InventoryHistoryTable() {
     const [isLoadingSale, setIsLoadingSale] = useState(false);
     const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
 
+    // Debounce para búsqueda
     useEffect(() => {
-        loadAdjustments();
-    }, [page, triggerFetch]);
+        const timer = setTimeout(() => {
+            setDebouncedSearch(search);
+            setPage(1);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [search]);
 
-    const loadAdjustments = async () => {
+    // Función para cargar ajustes
+    const loadAdjustments = useCallback(async () => {
         setIsLoading(true);
         try {
             const filters = {
-                search,
+                search: debouncedSearch,
                 type,
                 startDate,
                 endDate
@@ -107,23 +120,67 @@ export function InventoryHistoryTable() {
             }
         } catch (error) {
             console.error(error);
+            toast.error("Error al cargar el historial de inventario");
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [page, debouncedSearch, type, startDate, endDate]);
 
-    const handleFilter = () => {
+    // Cargar ajustes cuando cambien los filtros o la página
+    useEffect(() => {
+        loadAdjustments();
+    }, [loadAdjustments]);
+
+    const handleTypeChange = (value: string) => {
+        setType(value);
         setPage(1);
-        setTriggerFetch(prev => prev + 1);
     };
 
-    const handleClear = () => {
+    const handleStartDateChange = (value: string) => {
+        setStartDate(value);
+        setPage(1);
+    };
+
+    const handleEndDateChange = (value: string) => {
+        setEndDate(value);
+        setPage(1);
+    };
+
+    const handleClearFilter = (filterType: "search" | "type" | "startDate" | "endDate") => {
+        switch (filterType) {
+            case "search":
+                setSearch("");
+                break;
+            case "type":
+                setType("all");
+                break;
+            case "startDate":
+                setStartDate("");
+                break;
+            case "endDate":
+                setEndDate("");
+                break;
+        }
+        setPage(1);
+    };
+
+    const handleClearAll = () => {
         setSearch("");
         setType("all");
         setStartDate("");
         setEndDate("");
         setPage(1);
-        setTriggerFetch(prev => prev + 1);
+    };
+
+    const hasActiveFilters = search || type !== "all" || startDate || endDate;
+
+    // Función para formatear el motivo, simplificando ventas
+    const formatReason = (reason: string): string => {
+        // Si el motivo comienza con "Venta", solo mostrar "Venta"
+        if (reason.startsWith("Venta")) {
+            return "Venta";
+        }
+        return reason;
     };
 
     const handleViewSale = async (saleId: string) => {
@@ -176,7 +233,7 @@ export function InventoryHistoryTable() {
         const receipt: ReceiptData = {
             invoiceNumber: saleDetails.invoice_number,
             date: formatDateForReceipt(saleDetails.created_at),
-            customerData: saleDetails.customer_data,
+            customerData: saleDetails.customer_data ? (saleDetails.customer_data as CustomerData) : undefined,
             items: saleDetails.sale_items.map((item) => ({
                 description: item.products?.description || item.services?.description || 'Item',
                 quantity: item.quantity,
@@ -208,176 +265,375 @@ export function InventoryHistoryTable() {
 
     return (
         <div className="space-y-4">
-            {/* Barra de Filtros */}
-            <div className="bg-white dark:bg-zinc-900 p-4 rounded-lg border flex flex-col md:flex-row gap-4 items-end md:items-center justify-between">
-                <div className="flex flex-col md:flex-row gap-4 w-full">
-                    <div className="w-full md:w-1/4">
-                        <label className="text-xs font-medium mb-1 block text-muted-foreground">Producto</label>
-                        <div className="relative">
-                            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                            <Input
-                                placeholder="Buscar por nombre..."
-                                className="pl-8"
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                            />
+            {/* Barra de Filtros Mejorada */}
+            <div className="bg-white dark:bg-zinc-900 rounded-lg border shadow-sm">
+                <div className="p-4 border-b border-border">
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                            <Filter className="h-4 w-4 text-muted-foreground" />
+                            <h3 className="text-sm font-semibold">Filtros de Búsqueda</h3>
                         </div>
-                    </div>
-
-                    <div className="w-full md:w-1/6">
-                        <label className="text-xs font-medium mb-1 block text-muted-foreground">Tipo</label>
-                        <Select value={type} onValueChange={setType}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Todos" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Todos</SelectItem>
-                                <SelectItem value="add">Entrada</SelectItem>
-                                <SelectItem value="subtract">Salida</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    <div className="w-full md:w-1/6">
-                        <label className="text-xs font-medium mb-1 block text-muted-foreground">Desde</label>
-                        <Input
-                            type="date"
-                            value={startDate}
-                            onChange={(e) => setStartDate(e.target.value)}
-                        />
-                    </div>
-
-                    <div className="w-full md:w-1/6">
-                        <label className="text-xs font-medium mb-1 block text-muted-foreground">Hasta</label>
-                        <Input
-                            type="date"
-                            value={endDate}
-                            onChange={(e) => setEndDate(e.target.value)}
-                        />
-                    </div>
-
-                    <div className="flex items-end gap-2 pb-0.5">
-                        <Button onClick={handleFilter} className="gap-2">
-                            <Filter className="h-4 w-4" />
-                            Filtrar
-                        </Button>
-                        {(search || type !== "all" || startDate || endDate) && (
-                            <Button variant="ghost" onClick={handleClear} size="icon" title="Limpiar filtros">
-                                <X className="h-4 w-4" />
+                        {hasActiveFilters && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleClearAll}
+                                className="text-xs h-7 gap-1.5"
+                            >
+                                <X className="h-3.5 w-3.5" />
+                                Limpiar Todo
                             </Button>
                         )}
                     </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {/* Búsqueda por Producto */}
+                        <div className="space-y-2">
+                            <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                                <Package className="h-3.5 w-3.5" />
+                                Producto
+                            </label>
+                            <div className="relative">
+                                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                <Input
+                                    placeholder="Buscar por nombre..."
+                                    className="pl-9 pr-8 h-9"
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                />
+                                {search && (
+                                    <button
+                                        onClick={() => handleClearFilter("search")}
+                                        className="absolute right-2 top-2.5 text-muted-foreground hover:text-foreground transition-colors"
+                                        aria-label="Limpiar búsqueda"
+                                        title="Limpiar búsqueda"
+                                    >
+                                        <X className="h-3.5 w-3.5" />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Filtro por Tipo */}
+                        <div className="space-y-2">
+                            <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                                <TrendingUp className="h-3.5 w-3.5" />
+                                Tipo de Ajuste
+                            </label>
+                            <Select value={type} onValueChange={handleTypeChange}>
+                                <SelectTrigger className="h-9">
+                                    <SelectValue placeholder="Todos los tipos" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Todos los tipos</SelectItem>
+                                    <SelectItem value="add">
+                                        <div className="flex items-center gap-2">
+                                            <TrendingUp className="h-3.5 w-3.5 text-green-600" />
+                                            <span>Entrada</span>
+                                        </div>
+                                    </SelectItem>
+                                    <SelectItem value="subtract">
+                                        <div className="flex items-center gap-2">
+                                            <TrendingDown className="h-3.5 w-3.5 text-red-600" />
+                                            <span>Salida</span>
+                                        </div>
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Filtro Fecha Desde */}
+                        <div className="space-y-2">
+                            <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                                <Calendar className="h-3.5 w-3.5" />
+                                Fecha Desde
+                            </label>
+                            <div className="relative">
+                                <Input
+                                    type="date"
+                                    className="h-9 pr-8"
+                                    value={startDate}
+                                    onChange={(e) => handleStartDateChange(e.target.value)}
+                                />
+                                {startDate && (
+                                    <button
+                                        onClick={() => handleClearFilter("startDate")}
+                                        className="absolute right-2 top-2.5 text-muted-foreground hover:text-foreground transition-colors"
+                                        aria-label="Limpiar fecha desde"
+                                        title="Limpiar fecha desde"
+                                    >
+                                        <X className="h-3.5 w-3.5" />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Filtro Fecha Hasta */}
+                        <div className="space-y-2">
+                            <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                                <Calendar className="h-3.5 w-3.5" />
+                                Fecha Hasta
+                            </label>
+                            <div className="relative">
+                                <Input
+                                    type="date"
+                                    className="h-9 pr-8"
+                                    value={endDate}
+                                    onChange={(e) => handleEndDateChange(e.target.value)}
+                                    min={startDate || undefined}
+                                />
+                                {endDate && (
+                                    <button
+                                        onClick={() => handleClearFilter("endDate")}
+                                        className="absolute right-2 top-2.5 text-muted-foreground hover:text-foreground transition-colors"
+                                        aria-label="Limpiar fecha hasta"
+                                        title="Limpiar fecha hasta"
+                                    >
+                                        <X className="h-3.5 w-3.5" />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
                 </div>
+
+                {/* Badges de Filtros Activos */}
+                {hasActiveFilters && (
+                    <div className="px-4 py-3 bg-muted/30 border-t border-border">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-medium text-muted-foreground">Filtros activos:</span>
+                            {search && (
+                                <Badge variant="secondary" className="gap-1.5 text-xs py-1">
+                                    <Package className="h-3 w-3" />
+                                    {search}
+                                    <button
+                                        onClick={() => handleClearFilter("search")}
+                                        className="ml-1 hover:bg-muted-foreground/20 rounded-full p-0.5 transition-colors"
+                                        aria-label="Quitar filtro de búsqueda"
+                                        title="Quitar filtro de búsqueda"
+                                    >
+                                        <X className="h-3 w-3" />
+                                    </button>
+                                </Badge>
+                            )}
+                            {type !== "all" && (
+                                <Badge variant="secondary" className="gap-1.5 text-xs py-1">
+                                    {type === "add" ? (
+                                        <>
+                                            <TrendingUp className="h-3 w-3 text-green-600" />
+                                            Entrada
+                                        </>
+                                    ) : (
+                                        <>
+                                            <TrendingDown className="h-3 w-3 text-red-600" />
+                                            Salida
+                                        </>
+                                    )}
+                                    <button
+                                        onClick={() => handleClearFilter("type")}
+                                        className="ml-1 hover:bg-muted-foreground/20 rounded-full p-0.5 transition-colors"
+                                        aria-label="Quitar filtro de tipo"
+                                        title="Quitar filtro de tipo"
+                                    >
+                                        <X className="h-3 w-3" />
+                                    </button>
+                                </Badge>
+                            )}
+                            {startDate && (
+                                <Badge variant="secondary" className="gap-1.5 text-xs py-1">
+                                    <Calendar className="h-3 w-3" />
+                                    Desde: {new Date(startDate).toLocaleDateString("es-ES")}
+                                    <button
+                                        onClick={() => handleClearFilter("startDate")}
+                                        className="ml-1 hover:bg-muted-foreground/20 rounded-full p-0.5 transition-colors"
+                                        aria-label="Quitar filtro de fecha desde"
+                                        title="Quitar filtro de fecha desde"
+                                    >
+                                        <X className="h-3 w-3" />
+                                    </button>
+                                </Badge>
+                            )}
+                            {endDate && (
+                                <Badge variant="secondary" className="gap-1.5 text-xs py-1">
+                                    <Calendar className="h-3 w-3" />
+                                    Hasta: {new Date(endDate).toLocaleDateString("es-ES")}
+                                    <button
+                                        onClick={() => handleClearFilter("endDate")}
+                                        className="ml-1 hover:bg-muted-foreground/20 rounded-full p-0.5 transition-colors"
+                                        aria-label="Quitar filtro de fecha hasta"
+                                        title="Quitar filtro de fecha hasta"
+                                    >
+                                        <X className="h-3 w-3" />
+                                    </button>
+                                </Badge>
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
 
-            {isLoading && adjustments.length === 0 ? (
-                <div className="flex items-center justify-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
-            ) : adjustments.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground bg-white dark:bg-zinc-900 rounded-lg border">
-                    <p>No se encontraron resultados con los filtros aplicados</p>
-                </div>
-            ) : (
-                <div className="bg-white dark:bg-zinc-900 rounded-lg border">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Fecha</TableHead>
-                                <TableHead>Producto</TableHead>
-                                <TableHead>Código</TableHead>
-                                <TableHead className="text-center">Tipo</TableHead>
-                                <TableHead className="text-right">Cantidad</TableHead>
-                                <TableHead className="text-right">Stock Anterior</TableHead>
-                                <TableHead className="text-right">Stock Nuevo</TableHead>
-                                <TableHead>Motivo</TableHead>
-                                <TableHead className="text-center">Acciones</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {adjustments.map((adjustment) => (
-                                <TableRow key={adjustment.id}>
-                                    <TableCell className="whitespace-nowrap">
-                                        {formatDate(adjustment.created_at)}
-                                    </TableCell>
-                                    <TableCell className="font-medium">
-                                        {adjustment.products.description}
-                                    </TableCell>
-                                    <TableCell className="text-muted-foreground">
-                                        {adjustment.products.barcode}
-                                    </TableCell>
-                                    <TableCell className="text-center">
-                                        {adjustment.adjustment_type === "add" ? (
-                                            <Badge className="bg-green-500 hover:bg-green-600">
-                                                <ArrowUp className="h-3 w-3 mr-1" />
-                                                Entrada
-                                            </Badge>
-                                        ) : (
-                                            <Badge className="bg-red-500 hover:bg-red-600">
-                                                <ArrowDown className="h-3 w-3 mr-1" />
-                                                Salida
-                                            </Badge>
-                                        )}
-                                    </TableCell>
-                                    <TableCell className="text-right font-semibold">
-                                        {adjustment.adjustment_type === "add" ? "+" : "-"}
-                                        {adjustment.quantity}
-                                    </TableCell>
-                                    <TableCell className="text-right text-muted-foreground">
-                                        {adjustment.previous_stock}
-                                    </TableCell>
-                                    <TableCell className="text-right font-semibold">
-                                        {adjustment.new_stock}
-                                    </TableCell>
-                                    <TableCell className="max-w-xs truncate" title={adjustment.reason}>
-                                        {adjustment.reason}
-                                    </TableCell>
-                                    <TableCell className="text-center">
-                                        {adjustment.sale_id && (
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => handleViewSale(adjustment.sale_id!)}
-                                                className="gap-2"
-                                            >
-                                                <FileText className="h-4 w-4" />
-                                                Ver Factura
-                                            </Button>
-                                        )}
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </div>
-            )}
-
-            {/* Paginación */}
-            {adjustments.length > 0 && (
-                <div className="flex items-center justify-between px-2">
-                    <div className="text-sm text-muted-foreground">
-                        Mostrando {((page - 1) * pageSize) + 1} a {Math.min(page * pageSize, totalCount)} de {totalCount} registros
+            {/* Contenido de la Tabla */}
+            <div className="bg-white dark:bg-zinc-900 rounded-lg border shadow-sm overflow-hidden">
+                {isLoading && adjustments.length === 0 ? (
+                    <div className="flex items-center justify-center py-16">
+                        <div className="flex flex-col items-center gap-3">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                            <p className="text-sm text-muted-foreground">Cargando historial...</p>
+                        </div>
                     </div>
-                    <div className="flex items-center space-x-2">
+                ) : adjustments.length === 0 ? (
+                    <div className="text-center py-16">
+                        <div className="flex flex-col items-center gap-3">
+                            <Package className="h-12 w-12 text-muted-foreground/50" />
+                            <div>
+                                <p className="font-medium text-foreground">No se encontraron resultados</p>
+                                <p className="text-sm text-muted-foreground mt-1">
+                                    {hasActiveFilters
+                                        ? "Intenta ajustar los filtros de búsqueda"
+                                        : "No hay registros de inventario disponibles"}
+                                </p>
+                            </div>
+                            {hasActiveFilters && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleClearAll}
+                                    className="mt-2 gap-2"
+                                >
+                                    <X className="h-4 w-4" />
+                                    Limpiar Filtros
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+                ) : (
+                    <>
+                        <div className="overflow-x-auto overflow-y-visible">
+                            <Table className="min-w-full">
+                                <TableHeader>
+                                    <TableRow className="bg-muted/50">
+                                        <TableHead className="font-semibold whitespace-nowrap">Fecha y Hora</TableHead>
+                                        <TableHead className="font-semibold">Producto</TableHead>
+                                        <TableHead className="font-semibold whitespace-nowrap">Código</TableHead>
+                                        <TableHead className="text-center font-semibold whitespace-nowrap">Tipo</TableHead>
+                                        <TableHead className="text-right font-semibold whitespace-nowrap">Cantidad</TableHead>
+                                        <TableHead className="text-right font-semibold whitespace-nowrap">Stock Nuevo</TableHead>
+                                        <TableHead className="font-semibold">Motivo</TableHead>
+                                        <TableHead className="text-center font-semibold whitespace-nowrap">Acciones</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {adjustments.map((adjustment) => (
+                                        <TableRow key={adjustment.id} className="hover:bg-muted/30 transition-colors">
+                                            <TableCell className="whitespace-nowrap font-medium">
+                                                {formatDate(adjustment.created_at)}
+                                            </TableCell>
+                                            <TableCell className="font-medium">
+                                                <div 
+                                                    className="truncate cursor-help" 
+                                                    title={adjustment.products.description}
+                                                >
+                                                    {adjustment.products.description}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="whitespace-nowrap">
+                                                <Badge variant="outline" className="font-mono text-xs">
+                                                    {adjustment.products.barcode}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell className="text-center whitespace-nowrap">
+                                                {adjustment.adjustment_type === "add" ? (
+                                                    <Badge className="bg-green-500/90 hover:bg-green-600 text-white border-0 gap-1">
+                                                        <ArrowUp className="h-3 w-3" />
+                                                        Entrada
+                                                    </Badge>
+                                                ) : (
+                                                    <Badge className="bg-red-500/90 hover:bg-red-600 text-white border-0 gap-1">
+                                                        <ArrowDown className="h-3 w-3" />
+                                                        Salida
+                                                    </Badge>
+                                                )}
+                                            </TableCell>
+                                            <TableCell className="text-right whitespace-nowrap">
+                                                <span className={`font-semibold ${adjustment.adjustment_type === "add" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                                                    {adjustment.adjustment_type === "add" ? "+" : "-"}
+                                                    {adjustment.quantity}
+                                                </span>
+                                            </TableCell>
+                                            <TableCell className="text-right whitespace-nowrap">
+                                                <span className="font-semibold text-foreground">
+                                                    {adjustment.new_stock}
+                                                </span>
+                                            </TableCell>
+                                            <TableCell>
+                                                <div 
+                                                    className="truncate cursor-help" 
+                                                    title={adjustment.reason}
+                                                >
+                                                    {formatReason(adjustment.reason)}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-center whitespace-nowrap">
+                                                {adjustment.sale_id ? (
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => handleViewSale(adjustment.sale_id!)}
+                                                        className="gap-2"
+                                                    >
+                                                        <FileText className="h-4 w-4" />
+                                                        Ver Factura
+                                                    </Button>
+                                                ) : (
+                                                    <span className="text-xs text-muted-foreground">—</span>
+                                                )}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                        {isLoading && adjustments.length > 0 && (
+                            <div className="flex items-center justify-center py-4 border-t">
+                                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                            </div>
+                        )}
+                    </>
+                )}
+            </div>
+
+            {/* Paginación Mejorada */}
+            {adjustments.length > 0 && !isLoading && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-2 py-3 bg-muted/30 rounded-lg border">
+                    <div className="text-sm text-muted-foreground">
+                        Mostrando <span className="font-semibold text-foreground">{((page - 1) * pageSize) + 1}</span> a{" "}
+                        <span className="font-semibold text-foreground">{Math.min(page * pageSize, totalCount)}</span> de{" "}
+                        <span className="font-semibold text-foreground">{totalCount}</span> registros
+                    </div>
+                    <div className="flex items-center gap-2">
                         <Button
                             variant="outline"
                             size="sm"
                             onClick={() => setPage(p => Math.max(1, p - 1))}
-                            disabled={page === 1 || isLoading}
+                            disabled={page === 1}
+                            className="gap-1.5"
                         >
                             <ChevronLeft className="h-4 w-4" />
-                            Anterior
+                            <span className="hidden sm:inline">Anterior</span>
                         </Button>
-                        <div className="text-sm font-medium">
-                            Página {page} de {totalPages}
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-background rounded-md border">
+                            <span className="text-sm font-medium">
+                                Página <span className="text-foreground">{page}</span> de <span className="text-foreground">{totalPages}</span>
+                            </span>
                         </div>
                         <Button
                             variant="outline"
                             size="sm"
                             onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                            disabled={page === totalPages || isLoading}
+                            disabled={page === totalPages}
+                            className="gap-1.5"
                         >
-                            Siguiente
+                            <span className="hidden sm:inline">Siguiente</span>
                             <ChevronRight className="h-4 w-4" />
                         </Button>
                     </div>
