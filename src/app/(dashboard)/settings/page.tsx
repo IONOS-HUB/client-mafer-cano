@@ -1,9 +1,10 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Printer, CheckCircle2 } from "lucide-react";
+import { Printer, CheckCircle2, BookOpen } from "lucide-react";
 import { useState } from "react";
 import { Receipt, ReceiptData } from "@/features/pos/components/receipt";
+import Link from "next/link";
 
 export default function SettingsPage() {
     const [isPrinting, setIsPrinting] = useState(false);
@@ -49,7 +50,15 @@ export default function SettingsPage() {
 
     return (
         <div className="max-w-2xl mx-auto space-y-8">
-            <h1 className="text-3xl font-bold text-zinc-900 dark:text-white">Configuración</h1>
+            <div className="flex items-center justify-between">
+                <h1 className="text-3xl font-bold text-zinc-900 dark:text-white">Configuración</h1>
+                <Link href="/tutorial">
+                    <Button variant="outline" className="gap-2">
+                        <BookOpen className="h-4 w-4" />
+                        Ver Tutorial
+                    </Button>
+                </Link>
+            </div>
 
             {/* Configuración de Impresora */}
             <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
