@@ -72,15 +72,22 @@ export const customerService = {
     },
 
     async createOrUpdateCustomer(customer: CreateCustomerInput): Promise<Customer> {
-        // Primero intentar buscar el cliente por identificación
-        const existing = await this.getCustomerByIdentification(customer.identification);
-        
-        if (existing) {
-            // Si existe, actualizar
-            return await this.updateCustomer(existing.id, customer);
-        } else {
-            // Si no existe, crear
-            return await this.createCustomer(customer);
+        try {
+            // Primero intentar buscar el cliente por identificación
+            const existing = await this.getCustomerByIdentification(customer.identification);
+            
+            if (existing) {
+                // Si existe, actualizar
+                console.log("Cliente existente encontrado, actualizando...", existing.id);
+                return await this.updateCustomer(existing.id, customer);
+            } else {
+                // Si no existe, crear
+                console.log("Cliente no encontrado, creando nuevo...");
+                return await this.createCustomer(customer);
+            }
+        } catch (error) {
+            console.error("Error en createOrUpdateCustomer:", error);
+            throw error;
         }
     },
 };

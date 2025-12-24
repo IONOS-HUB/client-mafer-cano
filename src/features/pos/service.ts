@@ -1,6 +1,8 @@
 import { supabase } from "@/lib/supabase";
 import { Sale } from "./types";
 import { CustomerData } from "./invoice-types";
+import { sriService } from "../sri/service";
+import { getSRICompanyInfo, isSRIEnabled } from "../sri/config";
 
 export const salesService = {
     async createSale(
@@ -87,6 +89,124 @@ export const salesService = {
                 console.error("Error creating stock adjustments:", adjustmentError);
                 // No lanzamos error aquí para no bloquear la venta, pero lo registramos
             }
+        }
+
+        // 4. Enviar factura electrónica al SRI (si está habilitado)
+        console.log("Verificando si SRI está habilitado...");
+        console.log("Variables de entorno SRI:", {
+            hasCertificate: !!(process.env.SRI_P12_URL || process.env.SRI_P12_PATH),
+            hasPassword: !!process.env.SRI_P12_PASSWORD,
+            hasRuc: !!process.env.NEXT_PUBLIC_SRI_RUC,
+            hasRazonSocial: !!process.env.NEXT_PUBLIC_SRI_RAZON_SOCIAL,
+        });
+        
+        if (isSRIEnabled()) {
+            console.log("SRI habilitado - Iniciando proceso de facturación electrónica");
+            try {
+                const companyInfo = getSRICompanyInfo();
+                if (companyInfo) {
+                    const completeSale: Sale = {
+                        ...saleData,
+                        items: sale.items,
+                        invoice_number: saleData.invoice_number,
+                    } as Sale;
+
+                    const invoiceData = sriService.generateInvoiceData(
+                        completeSale,
+                        companyInfo,
+                        customerData
+                    );
+
+                    const sriResult = await sriService.sendInvoiceToSRI(
+                        saleData.id,
+                        invoiceData
+                    );
+
+                    console.log("Resultado del SRI:", {
+                        success: sriResult.success,
+                        accessKey: sriResult.accessKey,
+                        authorizationNumber: sriResult.authorizationNumber,
+                        errorMessage: sriResult.errorMessage,
+                    });
+
+                    // Actualizar la venta con el resultado del SRI
+                    const updateData: {
+                        sri_status: string;
+                        sri_sent_at: string;
+                        sri_access_key?: string;
+                        sri_authorization_number?: string;
+                        sri_authorized_at?: string;
+                        sri_error_message?: string;
+                    } = {
+                        sri_status: sriResult.success ? "sent" : "error",
+                        sri_sent_at: new Date().toISOString(),
+                    };
+
+                    if (sriResult.accessKey) {
+                        updateData.sri_access_key = sriResult.accessKey;
+                    }
+
+                    if (sriResult.authorizationNumber) {
+                        updateData.sri_authorization_number =
+                            sriResult.authorizationNumber;
+                        updateData.sri_status = "authorized";
+                        updateData.sri_authorized_at = new Date().toISOString();
+                    }
+
+                    if (sriResult.errorMessage) {
+                        updateData.sri_error_message = sriResult.errorMessage;
+                    }
+
+                    // Actualizar la base de datos con el resultado del SRI
+                    const { error: updateError } = await supabase
+                        .from("sales")
+                        .update(updateData)
+                        .eq("id", saleData.id);
+
+                    if (updateError) {
+                        console.error("Error al actualizar datos SRI en la base de datos:", updateError);
+                        console.error("Datos que se intentaron actualizar:", updateData);
+                    } else {
+                        console.log("Datos SRI actualizados correctamente:", {
+                            saleId: saleData.id,
+                            status: updateData.sri_status,
+                            accessKey: updateData.sri_access_key,
+                            authorizationNumber: updateData.sri_authorization_number,
+                        });
+                    }
+
+                    if (!sriResult.success) {
+                        console.error(
+                            "Error al enviar factura al SRI:",
+                            sriResult.errorMessage
+                        );
+                        // No lanzamos error para no bloquear la venta
+                    }
+                }
+            } catch (error) {
+                console.error("Error en proceso de facturación electrónica:", error);
+                // Actualizar estado de error en la base de datos
+                const errorMessage = error instanceof Error
+                    ? error.message
+                    : "Error desconocido";
+                
+                const { error: updateError } = await supabase
+                    .from("sales")
+                    .update({
+                        sri_status: "error",
+                        sri_error_message: errorMessage,
+                        sri_sent_at: new Date().toISOString(),
+                    })
+                    .eq("id", saleData.id);
+
+                if (updateError) {
+                    console.error("Error al actualizar estado de error SRI:", updateError);
+                }
+                // No lanzamos error para no bloquear la venta
+            }
+        } else {
+            console.log("SRI NO habilitado - La venta se guardó sin facturación electrónica");
+            console.log("Para habilitar el SRI, configure las variables de entorno en .env.local");
         }
 
         return { ...saleData, items: sale.items } as Sale;
