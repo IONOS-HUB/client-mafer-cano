@@ -91,6 +91,8 @@ export function InvoiceDialog({
   onConfirmWithData,
   total,
 }: InvoiceDialogProps) {
+  const bloqueaConsumidorFinal = total > 50;
+
   const [step, setStep] = useState<Step>("selection");
   const [customerData, setCustomerData] = useState<CustomerData | null>(null);
 
@@ -115,21 +117,21 @@ export function InvoiceDialog({
     },
   });
 
-    const identificationType = form.watch("identification_type");
-    const identification = form.watch("identification");
-    const [isLoadingCustomer, setIsLoadingCustomer] = useState(false);
-    const [customerFound, setCustomerFound] = useState<boolean | null>(null);
+  const identificationType = form.watch("identification_type");
+  const identification = form.watch("identification");
+  const [isLoadingCustomer, setIsLoadingCustomer] = useState(false);
+  const [customerFound, setCustomerFound] = useState<boolean | null>(null);
 
-    useEffect(() => {
-        if (isOpen) {
-            setStep("selection");
-            setPaymentMethod("cash");
-            setAmountReceived("");
-            setCustomerData(null);
-            setCustomerFound(null);
-            form.reset();
-        }
-    }, [isOpen, form]);
+  useEffect(() => {
+    if (isOpen) {
+      setStep("selection");
+      setPaymentMethod("cash");
+      setAmountReceived("");
+      setCustomerData(null);
+      setCustomerFound(null);
+      form.reset();
+    }
+  }, [isOpen, form]);
 
   // Auto-completar datos del cliente cuando se ingresa la identificación
   useEffect(() => {
@@ -230,7 +232,7 @@ export function InvoiceDialog({
         business_name: data.business_name,
         name: data.name,
       });
-      
+
       if (wasNewCustomer) {
         toast.success("Cliente registrado exitosamente");
       }
@@ -273,7 +275,7 @@ export function InvoiceDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent aria-describedby={undefined} className="sm:max-w-[600px]">
         <DialogHeader className="pb-4 border-b">
           <DialogTitle className="text-2xl font-bold">
             {step === "selection" && "Tipo de Factura"}
@@ -304,35 +306,55 @@ export function InvoiceDialog({
         {step === "selection" && (
           <div className="space-y-6 py-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Button
-                variant="outline"
-                className="h-44 flex flex-col gap-4 hover:bg-green-50 hover:border-green-500 dark:hover:bg-green-950/30 transition-all border-2 rounded-xl shadow-sm hover:shadow-md"
-                onClick={handleSelectFinalConsumer}
-              >
-                <div className="h-20 w-20 rounded-full bg-linear-to-br from-green-100 to-green-200 dark:from-green-900/50 dark:to-green-800/50 flex items-center justify-center shadow-sm">
-                  <User className="h-10 w-10 text-green-600 dark:text-green-400" />
-                </div>
-                <div className="text-center space-y-1">
-                  <p className="font-bold text-xl text-green-900 dark:text-green-100">Consumidor Final</p>
-                  <p className="text-sm text-green-700 dark:text-green-300">
-                    Venta rápida sin datos
-                  </p>
-                </div>
-              </Button>
+              <div className="space-y-2 w-full">
+                <Button
+                  variant="outline"
+                  className="w-full h-44 flex flex-col gap-4 hover:bg-green-50 hover:border-green-500 dark:hover:bg-green-950/30 transition-all border-2 rounded-xl shadow-sm hover:shadow-md"
+                  onClick={handleSelectFinalConsumer}
+                  disabled={total > 50}
+                >
+                  <div className="h-20 w-20 rounded-full bg-linear-to-br from-green-100 to-green-200 dark:from-green-900/50 dark:to-green-800/50 flex items-center justify-center shadow-sm">
+                    <User className="h-10 w-10 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div className="text-center space-y-1">
+                    <p className="font-bold text-xl text-green-900 dark:text-green-100">
+                      Consumidor Final
+                    </p>
+                    <p className="text-sm text-green-700 dark:text-green-300">
+                      Venta rápida sin datos
+                    </p>
+                  </div>
+                </Button>
 
-              <Button
-                variant="outline"
-                className="h-44 flex flex-col gap-4 hover:bg-blue-50 hover:border-blue-500 dark:hover:bg-blue-950/30 transition-all border-2 rounded-xl shadow-sm hover:shadow-md"
-                onClick={handleSelectWithData}
-              >
-                <div className="h-20 w-20 rounded-full bg-linear-to-br from-blue-100 to-blue-200 dark:from-blue-900/50 dark:to-blue-800/50 flex items-center justify-center shadow-sm">
-                  <FileText className="h-10 w-10 text-blue-600 dark:text-blue-400" />
-                </div>
-                <div className="text-center space-y-1">
-                  <p className="font-bold text-xl text-blue-900 dark:text-blue-100">Con Datos</p>
-                  <p className="text-sm text-blue-700 dark:text-blue-300">RUC o Cédula</p>
-                </div>
-              </Button>
+                {total > 50 && (
+                  <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 w-full">
+                    <p className="text-xs text-amber-800 dark:text-amber-200 font-medium">
+                      ⚠️ No disponible: el total supera $50. El SRI exige
+                      identificar al cliente.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2 w-full">
+                <Button
+                  variant="outline"
+                  className="w-full h-44 flex flex-col gap-4 hover:bg-blue-50 hover:border-blue-500 dark:hover:bg-blue-950/30 transition-all border-2 rounded-xl shadow-sm hover:shadow-md"
+                  onClick={handleSelectWithData}
+                >
+                  <div className="h-20 w-20 rounded-full bg-linear-to-br from-blue-100 to-blue-200 dark:from-blue-900/50 dark:to-blue-800/50 flex items-center justify-center shadow-sm">
+                    <FileText className="h-10 w-10 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div className="text-center space-y-1">
+                    <p className="font-bold text-xl text-blue-900 dark:text-blue-100">
+                      Con Datos
+                    </p>
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      RUC o Cédula
+                    </p>
+                  </div>
+                </Button>
+              </div>
             </div>
           </div>
         )}
@@ -390,8 +412,9 @@ export function InvoiceDialog({
                       {!isLoadingCustomer && customerFound === false && (
                         <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mt-2">
                           <p className="text-xs text-blue-700 dark:text-blue-300 font-medium">
-                            Cliente no encontrado. Por favor completa los datos del cliente. 
-                            Se registrará automáticamente al continuar al pago.
+                            Cliente no encontrado. Por favor completa los datos
+                            del cliente. Se registrará automáticamente al
+                            continuar al pago.
                           </p>
                         </div>
                       )}
@@ -513,15 +536,19 @@ export function InvoiceDialog({
                   onClick={() => setPaymentMethod("cash")}
                   className={cn(
                     "h-24 flex flex-col gap-2 rounded-xl transition-all shadow-sm",
-                    paymentMethod === "cash" 
-                      ? "bg-emerald-600 hover:bg-emerald-700 text-white border-2 border-emerald-700 shadow-md" 
+                    paymentMethod === "cash"
+                      ? "bg-emerald-600 hover:bg-emerald-700 text-white border-2 border-emerald-700 shadow-md"
                       : "hover:bg-emerald-50 hover:border-emerald-300 dark:hover:bg-emerald-950/20"
                   )}
                 >
-                  <Banknote className={cn(
-                    "h-7 w-7",
-                    paymentMethod === "cash" ? "text-white" : "text-emerald-600 dark:text-emerald-400"
-                  )} />
+                  <Banknote
+                    className={cn(
+                      "h-7 w-7",
+                      paymentMethod === "cash"
+                        ? "text-white"
+                        : "text-emerald-600 dark:text-emerald-400"
+                    )}
+                  />
                   <span className="font-semibold">Efectivo</span>
                 </Button>
                 <Button
@@ -529,15 +556,19 @@ export function InvoiceDialog({
                   onClick={() => setPaymentMethod("card")}
                   className={cn(
                     "h-24 flex flex-col gap-2 rounded-xl transition-all shadow-sm",
-                    paymentMethod === "card" 
-                      ? "bg-blue-600 hover:bg-blue-700 text-white border-2 border-blue-700 shadow-md" 
+                    paymentMethod === "card"
+                      ? "bg-blue-600 hover:bg-blue-700 text-white border-2 border-blue-700 shadow-md"
                       : "hover:bg-blue-50 hover:border-blue-300 dark:hover:bg-blue-950/20"
                   )}
                 >
-                  <CreditCard className={cn(
-                    "h-7 w-7",
-                    paymentMethod === "card" ? "text-white" : "text-blue-600 dark:text-blue-400"
-                  )} />
+                  <CreditCard
+                    className={cn(
+                      "h-7 w-7",
+                      paymentMethod === "card"
+                        ? "text-white"
+                        : "text-blue-600 dark:text-blue-400"
+                    )}
+                  />
                   <span className="font-semibold">Tarjeta</span>
                 </Button>
                 <Button
@@ -545,15 +576,19 @@ export function InvoiceDialog({
                   onClick={() => setPaymentMethod("transfer")}
                   className={cn(
                     "h-24 flex flex-col gap-2 rounded-xl transition-all shadow-sm",
-                    paymentMethod === "transfer" 
-                      ? "bg-purple-600 hover:bg-purple-700 text-white border-2 border-purple-700 shadow-md" 
+                    paymentMethod === "transfer"
+                      ? "bg-purple-600 hover:bg-purple-700 text-white border-2 border-purple-700 shadow-md"
                       : "hover:bg-purple-50 hover:border-purple-300 dark:hover:bg-purple-950/20"
                   )}
                 >
-                  <div className={cn(
-                    "text-2xl",
-                    paymentMethod === "transfer" ? "" : "opacity-70"
-                  )}>🏦</div>
+                  <div
+                    className={cn(
+                      "text-2xl",
+                      paymentMethod === "transfer" ? "" : "opacity-70"
+                    )}
+                  >
+                    🏦
+                  </div>
                   <span className="font-semibold">Transferencia</span>
                 </Button>
               </div>
@@ -611,7 +646,9 @@ export function InvoiceDialog({
                       {parsedAmount < total ? "Faltan:" : "Cambio a devolver:"}
                     </span>
                     <span className="text-xs text-muted-foreground block">
-                      {parsedAmount < total ? "El monto recibido es menor al total" : "Monto adicional a devolver"}
+                      {parsedAmount < total
+                        ? "El monto recibido es menor al total"
+                        : "Monto adicional a devolver"}
                     </span>
                   </div>
                   <span
