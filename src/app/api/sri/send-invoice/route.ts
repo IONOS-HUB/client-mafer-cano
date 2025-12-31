@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readFile } from "fs/promises";
 import { join } from "path";
-
-// Next 16
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
 interface SriAutorizacion {
   estado?: string;
   numeroAutorizacion?: string;
@@ -21,15 +20,17 @@ interface SriAuthorizationResponse {
       autorizacion?: SriAutorizacion | SriAutorizacion[];
     };
   };
-  // Propiedades de fallback si vienen en la raíz
   estado?: string;
   numeroAutorizacion?: string;
 }
+
 type Json = Record<string, unknown>;
+
 type DomGlobals = {
   DOMParser?: unknown;
   XMLSerializer?: unknown;
 };
+
 type OpenFacturaModule = {
   generateInvoice: (data: unknown) => { invoice: unknown };
   generateInvoiceXml: (invoice: unknown) => string;
@@ -41,18 +42,30 @@ type OpenFacturaModule = {
   ) => Promise<unknown>;
 };
 
-/* ----------------------------- Helpers clave ----------------------------- */
+/**
+ * Rellena con caracteres a la izquierda hasta alcanzar la longitud deseada
+ */
 function padLeft(value: string, len: number, ch = "0") {
   return String(value ?? "").padStart(len, ch);
 }
+
+/**
+ * Valida si un valor es un objeto (Record)
+ */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+/**
+ * Extrae el mensaje de error de un objeto desconocido
+ */
 function errorMessage(err: unknown) {
   return err instanceof Error ? err.message : String(err);
 }
 
+/**
+ * Formatea una fecha DD/MM/YYYY a DDMMYYYY
+ */
 function formatDdMmYyyyToDdMmYyyyNoSlash(fecha: string) {
   const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(fecha ?? ""));
   if (!m) return null;
@@ -60,6 +73,9 @@ function formatDdMmYyyyToDdMmYyyyNoSlash(fecha: string) {
   return `${dd}${mm}${yyyy}`;
 }
 
+/**
+ * Algoritmo Módulo 11 para el dígito verificador de la clave de acceso SRI
+ */
 function modulo11(clave48: string) {
   let sum = 0;
   let weight = 2;
@@ -75,6 +91,9 @@ function modulo11(clave48: string) {
   return String(dig);
 }
 
+/**
+ * Genera la clave de acceso de 49 dígitos requerida por el SRI
+ */
 function makeAccessKeySRI(params: {
   fechaEmision: string;
   codDoc: string;
@@ -113,15 +132,17 @@ function makeAccessKeySRI(params: {
   return clave48 + dv; // 49
 }
 
+/**
+ * Limpia el BOM y normaliza saltos de línea del XML
+ */
 function stripBomAndNormalize(xml: string) {
   return String(xml ?? "")
     .replace(/^\uFEFF/, "")
     .replace(/\r\n/g, "\n");
 }
+
 /**
- * XSD: <pagos><pago>...</pago></pagos>
- * Tu XML viene: <pagos><formaPago>...</formaPago><total>...</total></pagos>
- * - No quita nada: solo envuelve el contenido dentro de <pago> si falta.
+ * Asegura que los hijos de <pagos> estén envueltos en un tag <pago> si falta
  */
 function ensurePagosHasPago(xml: string) {
   const re = /<pagos>([\s\S]*?)<\/pagos>/g;
@@ -130,13 +151,11 @@ function ensurePagosHasPago(xml: string) {
   let changed = false;
 
   const out = xml.replace(re, (full, inner) => {
-    // si ya está bien, no tocar
     if (/<pago>[\s\S]*?<\/pago>/.test(inner)) return full;
 
     const trimmed = String(inner ?? "").trim();
     if (!trimmed) return full;
 
-    // envolver sin quitar nada
     changed = true;
     return `<pagos>\n      <pago>${inner}</pago>\n    </pagos>`;
   });
@@ -149,10 +168,7 @@ function ensurePagosHasPago(xml: string) {
 }
 
 /**
- * SOLO PERMITE id="comprobante" (minúscula)
- * - Si encuentra Id="comprobante" lo elimina (SRI lo rechaza)
- * - Si NO existe id="comprobante", lo inserta
- * - Si hay duplicados, deja uno solo
+ * Normaliza el atributo ID del tag raíz a id="comprobante" (minúscula)
  */
 function ensureRootHasLowercaseIdOnly(xml: string) {
   const start = xml.indexOf("<factura");
@@ -193,6 +209,10 @@ function ensureRootHasLowercaseIdOnly(xml: string) {
     rootTag,
   };
 }
+
+/**
+ * Prepara el XML eliminando namespaces e IDs mixtos para el firmador
+ */
 function normalizeXmlForSriSigner(xml: string) {
   const start = xml.indexOf("<factura");
   if (start === -1) return xml;
@@ -213,10 +233,10 @@ function normalizeXmlForSriSigner(xml: string) {
 
   return xml.slice(0, start) + rootTag + xml.slice(end + 1);
 }
-/**
- * DOM globals (Node) para xml-crypto/xpath
- */
 
+/**
+ * Inyecta DOM globals en el entorno Node para compatibilidad con librerías XML
+ */
 async function ensureXmlDomGlobals() {
   const g = globalThis as unknown as DomGlobals;
 
@@ -224,7 +244,6 @@ async function ensureXmlDomGlobals() {
 
   const xmldom = await import("@xmldom/xmldom");
 
-  // No necesitamos tipar DOMParser/XMLSerializer a fondo: solo existir como globals
   g.DOMParser =
     g.DOMParser ?? (xmldom as unknown as { DOMParser: unknown }).DOMParser;
   g.XMLSerializer =
@@ -235,7 +254,7 @@ async function ensureXmlDomGlobals() {
 }
 
 /**
- * Reemplaza el contenido de un tag (si existe)
+ * Reemplaza el contenido de un tag específico
  */
 function setXmlTagValue(xml: string, tag: string, value: string) {
   const re = new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`);
@@ -244,9 +263,7 @@ function setXmlTagValue(xml: string, tag: string, value: string) {
 }
 
 /**
- * Asegura que dentro de <infoTributaria> exista <claveAcceso> y esté ANTES de <codDoc>
- * - El SRI valida orden estricto del XSD.
- * - No quita nada: solo mueve/inyecta <claveAcceso> en el lugar correcto.
+ * Garantiza que claveAcceso exista y esté ubicada antes de codDoc (Orden XSD)
  */
 function ensureClaveAccesoBeforeCodDoc(xml: string, accessKey: string) {
   const m = /<infoTributaria>([\s\S]*?)<\/infoTributaria>/.exec(xml);
@@ -255,10 +272,8 @@ function ensureClaveAccesoBeforeCodDoc(xml: string, accessKey: string) {
   let inner = m[1];
   const before = inner;
 
-  // quitar cualquier claveAcceso existente para no duplicar
   inner = inner.replace(/<claveAcceso>[\s\S]*?<\/claveAcceso>\s*/g, "");
 
-  // insertar antes de codDoc
   if (/<codDoc>/.test(inner)) {
     inner = inner.replace(
       /<codDoc>/,
@@ -277,8 +292,7 @@ function ensureClaveAccesoBeforeCodDoc(xml: string, accessKey: string) {
 }
 
 /**
- * SRI espera <totalConImpuestos> (NO <totalImpuestos>) dentro de <infoFactura>
- * - No quita nada: solo renombra el tag de apertura/cierre.
+ * Renombra totalImpuestos a totalConImpuestos según esquema SRI
  */
 function ensureTotalConImpuestosTag(xml: string) {
   const m = /<infoFactura>([\s\S]*?)<\/infoFactura>/.exec(xml);
@@ -300,18 +314,7 @@ function ensureTotalConImpuestosTag(xml: string) {
 }
 
 /**
- * ESTRUCTURA XSD:
- * <totalConImpuestos>
- *   <totalImpuesto>
- *     <codigo>...</codigo>
- *     <codigoPorcentaje>...</codigoPorcentaje>
- *     <baseImponible>...</baseImponible>
- *     <tarifa>...</tarifa> (si aplica)
- *     <valor>...</valor>
- *   </totalImpuesto>
- * </totalConImpuestos>
- *
- * - No quita nada: solo envuelve el contenido en <totalImpuesto> si falta.
+ * Asegura que los hijos de totalConImpuestos estén envueltos en totalImpuesto
  */
 function ensureTotalConImpuestosHasTotalImpuesto(xml: string) {
   const re = /<totalConImpuestos>([\s\S]*?)<\/totalConImpuestos>/g;
@@ -321,7 +324,6 @@ function ensureTotalConImpuestosHasTotalImpuesto(xml: string) {
   let changed = false;
 
   const out = xml.replace(re, (full, inner) => {
-    // Si ya viene bien (ya tiene totalImpuesto), no tocar
     if (/<totalImpuesto>[\s\S]*?<\/totalImpuesto>/.test(inner)) return full;
 
     const trimmed = String(inner ?? "").trim();
@@ -341,13 +343,11 @@ function ensureTotalConImpuestosHasTotalImpuesto(xml: string) {
       : "already ok",
   };
 }
+
 /**
- * XSD detalle: antes de <precioTotalSinImpuesto> debe venir <descuento> (o precioSinSubsidio)
- * Si no existe <descuento>, lo inserta como 0.00 justo antes de <precioTotalSinImpuesto>
- * (No quita nada)
+ * Inserta el tag <descuento>0.00</descuento> si falta en los detalles (Orden XSD)
  */
 function ensureDetalleHasDescuentoBeforePrecioTotal(xml: string) {
-  // Solo trabaja dentro de cada <detalle>...</detalle>
   const reDetalle = /<detalle>([\s\S]*?)<\/detalle>/g;
   if (!reDetalle.test(xml))
     return { xml, changed: false, reason: "no <detalle>" };
@@ -355,15 +355,11 @@ function ensureDetalleHasDescuentoBeforePrecioTotal(xml: string) {
   let changed = false;
 
   const out = xml.replace(reDetalle, (full, inner) => {
-    // Si no hay precioTotalSinImpuesto, no tocar
     if (!/<precioTotalSinImpuesto>/.test(inner)) return full;
-
-    // Si ya existe descuento o precioSinSubsidio antes, no tocar
     if (/<descuento>[\s\S]*?<\/descuento>/.test(inner)) return full;
     if (/<precioSinSubsidio>[\s\S]*?<\/precioSinSubsidio>/.test(inner))
       return full;
 
-    // Insertar descuento 0.00 justo antes de precioTotalSinImpuesto
     changed = true;
     const patchedInner = inner.replace(
       /<precioTotalSinImpuesto>/,
@@ -381,10 +377,9 @@ function ensureDetalleHasDescuentoBeforePrecioTotal(xml: string) {
       : "already ok",
   };
 }
+
 /**
- * XSD detalle: <impuestos><impuesto>...</impuesto></impuestos>
- * Si viene <impuestos><codigo>...</codigo>...</impuestos> => lo envuelve en <impuesto>
- * (No quita nada)
+ * Asegura la estructura <impuestos><impuesto>...</impuesto></impuestos> en el detalle
  */
 function ensureDetalleImpuestosHasImpuesto(xml: string) {
   const re = /<impuestos>([\s\S]*?)<\/impuestos>/g;
@@ -393,13 +388,11 @@ function ensureDetalleImpuestosHasImpuesto(xml: string) {
   let changed = false;
 
   const out = xml.replace(re, (full, inner) => {
-    // ya ok
     if (/<impuesto>[\s\S]*?<\/impuesto>/.test(inner)) return full;
 
     const trimmed = String(inner ?? "").trim();
     if (!trimmed) return full;
 
-    // envolver
     changed = true;
     return `<impuestos>\n        <impuesto>${inner}</impuesto>\n      </impuestos>`;
   });
@@ -414,12 +407,7 @@ function ensureDetalleImpuestosHasImpuesto(xml: string) {
 }
 
 /**
- * Patch crítico ANTES de firmar:
- * - fuerza <fechaEmision> con la del invoiceData
- * - orden XSD: claveAcceso ANTES de codDoc
- * - nombre correcto: totalConImpuestos
- * - estructura correcta: totalConImpuestos -> totalImpuesto -> (codigo, ...)
- * - SIN QUITAR NADA: solo reordena/inserta/renombra/envuelve lo necesario
+ * Orquestador de parches de XML para cumplir con el XSD del SRI
  */
 function patchSriXmlBeforeSign(
   xml: string,
@@ -439,7 +427,10 @@ function patchSriXmlBeforeSign(
   return out;
 }
 
-/* --------------------------------- Handler -------------------------------- */
+/* -------------------------------------------------------------------------- */
+/* MAIN HANDLER                                 */
+/* -------------------------------------------------------------------------- */
+
 export async function POST(request: NextRequest) {
   const startedAt = Date.now();
 
@@ -461,7 +452,7 @@ export async function POST(request: NextRequest) {
     );
 
   try {
-    // 1) Body
+    /* 1) Obtener y validar Body */
     let body: unknown;
     try {
       body = await request.json();
@@ -482,7 +473,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 2) Env
+    /* 2) Configurar Variables de Entorno */
     const p12Url = process.env.SRI_P12_URL;
     const p12Path = process.env.SRI_P12_PATH;
     const p12Password = process.env.SRI_P12_PASSWORD;
@@ -509,10 +500,10 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 3) DOM globals
+    /* 3) Preparar entorno DOM */
     await ensureXmlDomGlobals();
 
-    // 4) Import open-factura (usamos todo menos signXml)
+    /* 4) Importar librería open-factura */
     const facturaLib = (await import(
       "open-factura"
     )) as unknown as OpenFacturaModule;
@@ -525,7 +516,7 @@ export async function POST(request: NextRequest) {
       documentAuthorization,
     } = facturaLib;
 
-    // 5) Leer P12 => Buffer (IMPORTANTE para open-factura)
+    /* 5) Cargar Certificado P12 */
     let signatureP12: Buffer;
 
     try {
@@ -534,13 +525,13 @@ export async function POST(request: NextRequest) {
         console.log("[SRI] Leyendo certificado:", filePath);
 
         const fileBuffer = await readFile(filePath);
-        signatureP12 = fileBuffer; // Buffer directo
+        signatureP12 = fileBuffer;
 
         console.log("[SRI] Certificado OK (bytes):", fileBuffer.byteLength);
       } else {
         console.log("[SRI] Descargando certificado desde URL...");
         const ab = await getP12FromUrl(p12Url);
-        signatureP12 = Buffer.from(new Uint8Array(ab)); // convertir a Buffer
+        signatureP12 = Buffer.from(new Uint8Array(ab));
         console.log(
           "[SRI] Certificado descargado OK (bytes):",
           signatureP12.byteLength
@@ -555,7 +546,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 6) Validar fechaEmision
+    /* 6) Validar fechaEmision */
     const infoFactura = isRecord(invoiceData.infoFactura)
       ? invoiceData.infoFactura
       : undefined;
@@ -570,7 +561,7 @@ export async function POST(request: NextRequest) {
     }
     console.log("[SRI] fechaEmision:", fechaEmision);
 
-    // 7) Clave manual (49)
+    /* 7) Generar Clave de Acceso SRI */
     const infoTrib = isRecord(invoiceData.infoTributaria)
       ? invoiceData.infoTributaria
       : undefined;
@@ -593,7 +584,6 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // asegurar objeto para setear claveAcceso (sin any)
     const newInfoTrib: Record<string, unknown> = isRecord(
       invoiceData.infoTributaria
     )
@@ -613,13 +603,13 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 8) Generar XML
+    /* 8) Generar XML Base */
     let invoiceXml: string;
     try {
-      console.log("🧩 [SRI] generateInvoice...");
+      console.log("[SRI] generateInvoice...");
       const { invoice } = generateInvoice(invoiceData);
 
-      console.log("🧩 [SRI] generateInvoiceXml(invoice)...");
+      console.log("[SRI] generateInvoiceXml(invoice)...");
       invoiceXml = generateInvoiceXml(invoice);
     } catch (e: unknown) {
       console.error("SRI] Error generando XML:", e);
@@ -631,9 +621,7 @@ export async function POST(request: NextRequest) {
     }
 
     invoiceXml = stripBomAndNormalize(invoiceXml);
-
     console.log("[SRI] invoiceXml length:", invoiceXml.length);
-    console.log("[SRI] XML preview:", invoiceXml.slice(0, 220));
 
     if (
       !invoiceXml.includes("<factura") ||
@@ -645,7 +633,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 9) Root: SOLO id="comprobante" (minúscula). PROHIBIDO Id="..."
+    /* 9) Corregir tag Raíz (id="comprobante") */
     const fix = ensureRootHasLowercaseIdOnly(invoiceXml);
     invoiceXml = fix.xml;
     console.log("🛠️ [SRI] root id fix:", {
@@ -654,56 +642,29 @@ export async function POST(request: NextRequest) {
       rootTag: fix.rootTag,
     });
 
-    // 10) PATCH CRÍTICO
+    /* 10) Ejecutar Parches Críticos SRI */
     invoiceXml = patchSriXmlBeforeSign(invoiceXml, accessKey, fechaEmision);
 
-    console.log(
-      "🔎 [SRI] XML fechaEmision tag:",
-      /<fechaEmision>[\s\S]*?<\/fechaEmision>/.exec(invoiceXml)?.[0]
-    );
-    console.log(
-      "🔎 [SRI] XML claveAcceso tag:",
-      /<claveAcceso>[\s\S]*?<\/claveAcceso>/.exec(invoiceXml)?.[0]
-    );
-    console.log(
-      "🔎 [SRI] infoTributaria preview:",
-      /<infoTributaria>[\s\S]*?<\/infoTributaria>/
-        .exec(invoiceXml)?.[0]
-        ?.slice(0, 450)
-    );
-    console.log(
-      "🔎 [SRI] infoFactura preview:",
-      /<infoFactura>[\s\S]*?<\/infoFactura>/
-        .exec(invoiceXml)?.[0]
-        ?.slice(0, 900)
-    );
-
-    // 11) Firmar (ec-sri-invoice-signer)
+    /* 11) Firmar Documento */
     let signedXml: string;
     try {
-      console.log("🧩 [SRI] signing (ec-sri-invoice-signer)...");
+      console.log("[SRI] signing (ec-sri-invoice-signer)...");
 
       const { signInvoiceXml } = await import("ec-sri-invoice-signer");
 
-      // Preparamos el XML con id minúscula
       const xmlToSign = normalizeXmlForSriSigner(invoiceXml);
 
       signedXml = signInvoiceXml(xmlToSign, signatureP12, {
         pkcs12Password: p12Password,
       });
 
-      // Si la librería forzó Id="comprobante" (con I mayúscula), lo bajamos a minúscula
+      // Safety Fix: Asegurar id en minúscula post-firma
       if (signedXml.includes('Id="comprobante"')) {
-        console.log("⚠️ [SRI] Corrigiendo 'Id' a 'id' post-firma (Safety Fix)");
+        console.log("[SRI] Corrigiendo 'Id' a 'id' post-firma (Safety Fix)");
         signedXml = signedXml.replace('Id="comprobante"', 'id="comprobante"');
       }
 
       console.log("[SRI] XML firmado OK (ec-sri-invoice-signer)");
-      console.log("🧪 has Signature?", /<(\w+:)?Signature\b/.test(signedXml));
-      console.log(
-        "🧪 has SignedProperties?",
-        /SignedProperties/.test(signedXml)
-      );
     } catch (e: unknown) {
       console.error("SRI] Firma (ec-sri-invoice-signer) falló:", e);
       return fail(500, {
@@ -713,7 +674,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 12) Recepción
+    /* 12) Envío a Recepción SRI */
     console.log("📡 [SRI] Enviando a recepción...");
     let receptionResult: unknown;
     try {
@@ -763,7 +724,7 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // 13) Autorización
+      /* 13) Consultar Autorización SRI */
       console.log("[SRI] Consultando autorización...");
       let authorizationNumber: string | undefined;
       let authorizationStatus: string | undefined;
@@ -779,14 +740,11 @@ export async function POST(request: NextRequest) {
           JSON.stringify(authorizationResult, null, 2)
         );
 
-        // Cast a nuestra Interface en lugar de 'any'
         const ar = authorizationResult as SriAuthorizationResponse;
         const res = ar?.RespuestaAutorizacionComprobante;
 
         if (res?.autorizaciones?.autorizacion) {
           const authData = res.autorizaciones.autorizacion;
-
-          // Manejo de Objeto o Array sin usar 'any'
           const auth = Array.isArray(authData) ? authData[0] : authData;
 
           authorizationStatus = auth.estado;
@@ -794,12 +752,11 @@ export async function POST(request: NextRequest) {
             authorizationNumber = auth.numeroAutorizacion;
           }
         } else {
-          // Fallback por si la estructura viene plana (depende de la versión de open-factura)
           authorizationStatus = ar.estado;
           authorizationNumber = ar.numeroAutorizacion;
         }
       } catch (e: unknown) {
-        console.error("⚠️ [SRI] Error autorización:", e);
+        console.error("[SRI] Error autorización:", e);
         authorizationStatus = authorizationStatus || "ERROR_AUTORIZACION";
       }
 

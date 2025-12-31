@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { supabaseBrowser as supabase } from "@/lib/supabase/client";
 import { Sale } from "./types";
 import { CustomerData } from "./invoice-types";
 import { sriService } from "../sri/service";
@@ -114,8 +114,7 @@ export const salesService = {
       console.log("Variables SRI (Cliente):", {
         status: sriHabilitado ? "Habilitado" : "Deshabilitado",
         ruc: process.env.NEXT_PUBLIC_SRI_RUC || "No configurado",
-        seguridad:
-          "Las llaves privadas están protegidas en el servidor.",
+        seguridad: "Las llaves privadas están protegidas en el servidor.",
       });
     }
 

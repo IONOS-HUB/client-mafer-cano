@@ -275,7 +275,7 @@ export function InvoiceDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent aria-describedby={undefined} className="sm:max-w-[600px]">
         <DialogHeader className="pb-4 border-b">
           <DialogTitle className="text-2xl font-bold">
             {step === "selection" && "Tipo de Factura"}
