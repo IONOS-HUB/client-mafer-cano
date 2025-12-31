@@ -42,7 +42,7 @@ interface InvoiceData {
     identificacionComprador: string;
     totalSinImpuestos: number;
     totalDescuento: number;
-    totalImpuestos: Array<{
+    totalConImpuestos: Array<{
       codigo: string;
       codigoPorcentaje: string;
       baseImponible: number;
@@ -62,54 +62,85 @@ interface InvoiceData {
     detalle: InvoiceItem[];
   };
 }
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
 
 export const sriService = {
   /**
-   * Genera los datos de la factura en formato SRI
+   * Redondeo estricto a 2 decimales para evitar rechazos del SRI
+   */
+  round(num: number): number {
+    return Math.round((num + Number.EPSILON) * 100) / 100;
+  },
+
+  /**
+   * Genera los datos con el formato exacto que espera el esquema Off-line del SRI
    */
   generateInvoiceData(
     sale: Sale,
     companyInfo: SRICompanyInfo,
     customerData?: CustomerData
   ): InvoiceData {
+    // 1. Padding de Secuencial (9 dígitos), Establecimiento (3) y Punto Emisión (3)
     const invoiceNumber = sale.invoice_number || "";
     const parts = invoiceNumber.split("-");
-    const secuencial = parts.length === 3 ? parts[2] : "000000001";
+    const secuencialRaw = parts.length === 3 ? parts[2] : "1";
+    const secuencial = secuencialRaw.padStart(9, "0");
+    const estab = companyInfo.establecimiento.padStart(3, "0");
+    const ptoEmi = companyInfo.puntoEmision.padStart(3, "0");
 
-    // Calcular totales
-    // El total de la venta ya incluye IVA, así que calculamos el subtotal sin IVA
-    const total = sale.items.reduce((sum, item) => sum + item.subtotal, 0);
-    const ivaRate = 0.15; // IVA 15% en Ecuador
-    const subtotal = total / (1 + ivaRate); // Subtotal sin IVA
-    const iva = total - subtotal;
+    // 2. Cálculo de Totales con Redondeo a 2 decimales
+    const total = this.round(
+      sale.items.reduce((sum, item) => sum + (item.subtotal || 0), 0)
+    );
+    const ivaRate = 0.15; // Tarifa 15% vigente en Ecuador
+    const subtotal = this.round(total / (1 + ivaRate));
+    const iva = this.round(total - subtotal);
 
-    // Generar fecha en formato requerido (YYYY-MM-DD)
-    const fechaEmision = new Date(sale.created_at || new Date())
-      .toISOString()
-      .split("T")[0];
+    // 3. Formato de Fecha DD/MM/YYYY (Estándar para Clave de Acceso)
+    // DENTRO DE generateInvoiceData en sriService.ts
 
-    // Mapear items a formato SRI
-    // Cada item tiene un subtotal que incluye IVA, necesitamos calcular sin IVA
+    // Aseguramos que la fecha sea un objeto Date válido
+    const dateObj = sale.created_at ? new Date(sale.created_at) : new Date();
+
+    // Si por alguna razón la fecha sigue siendo inválida, usamos la fecha actual
+    const validDate = isNaN(dateObj.getTime()) ? new Date() : dateObj;
+
+    const day = String(validDate.getDate()).padStart(2, "0");
+    const month = String(validDate.getMonth() + 1).padStart(2, "0");
+    const year = String(validDate.getFullYear());
+
+    // El SRI espera DD/MM/YYYY para la clave de acceso,
+    // pero algunas versiones de la librería prefieren el string directo
+    const fechaEmision = `${day}/${month}/${year}`;
+    // 4. Mapeo de Items (Detalles)
     const detalles: InvoiceItem[] = sale.items.map((item) => {
-      const descripcion =
-        item.product?.description || item.service?.description || "Item";
       const cantidad = item.quantity;
-      // El precio unitario ya incluye IVA, calcular sin IVA
-      const precioUnitarioConIva = item.unitPrice;
-      const precioUnitarioSinIva = precioUnitarioConIva / (1 + ivaRate);
-      const precioTotalSinImpuesto = precioUnitarioSinIva * cantidad;
-      const ivaItem = item.subtotal - precioTotalSinImpuesto;
+      const precioUnitarioSinIva = this.round(item.unitPrice / (1 + ivaRate));
+      const precioTotalSinImpuesto = this.round(
+        precioUnitarioSinIva * cantidad
+      );
+      const ivaItem = this.round((item.subtotal || 0) - precioTotalSinImpuesto);
 
       return {
-        codigoPrincipal: item.product?.barcode || item.service?.id || "",
-        descripcion,
-        cantidad,
+        codigoPrincipal: (
+          item.product?.barcode ||
+          item.service?.id ||
+          "001"
+        ).substring(0, 25),
+        descripcion: (
+          item.product?.description ||
+          item.service?.description ||
+          "Producto"
+        ).substring(0, 300),
+        cantidad: cantidad,
         precioUnitario: precioUnitarioSinIva,
-        precioTotalSinImpuesto,
+        precioTotalSinImpuesto: precioTotalSinImpuesto,
         impuestos: [
           {
-            codigo: "2", // IVA
-            codigoPorcentaje: "2", // 15%
+            codigo: "2", // Impuesto IVA
+            codigoPorcentaje: "4", // Código "4" es para IVA 15%
             tarifa: 15,
             baseImponible: precioTotalSinImpuesto,
             valor: ivaItem,
@@ -118,64 +149,55 @@ export const sriService = {
       };
     });
 
-    // Mapear tipo de identificación del comprador
-    let tipoIdentificacionComprador = "07"; // Consumidor final por defecto
+    // 5. Mapeo de Comprador
+    let tipoIdentificacionComprador = "07";
     if (customerData) {
-      switch (customerData.identification_type) {
-        case "ruc":
-          tipoIdentificacionComprador = "04";
-          break;
-        case "cedula":
-          tipoIdentificacionComprador = "05";
-          break;
-        case "passport":
-          tipoIdentificacionComprador = "06";
-          break;
-      }
+      if (customerData.identification_type === "ruc")
+        tipoIdentificacionComprador = "04";
+      else if (customerData.identification_type === "cedula")
+        tipoIdentificacionComprador = "05";
+      else if (customerData.identification_type === "passport")
+        tipoIdentificacionComprador = "06";
     }
 
-    // Mapear forma de pago
-    let formaPago = "01"; // Sin utilización del sistema financiero
-    switch (sale.payment_method) {
-      case "cash":
-        formaPago = "01";
-        break;
-      case "card":
-        formaPago = "19"; // Tarjeta de débito
-        break;
-      case "transfer":
-        formaPago = "20"; // Transferencia
-        break;
-    }
+    // 6. Formas de Pago
+    let formaPago = "01"; // Sin sistema financiero
+    if (sale.payment_method === "card") formaPago = "19";
+    else if (sale.payment_method === "transfer") formaPago = "20";
 
-    const invoiceData: InvoiceData = {
+    return {
       infoTributaria: {
         ambiente: companyInfo.ambiente,
-        tipoEmision: "1", // Normal
-        razonSocial: companyInfo.razonSocial,
-        nombreComercial: companyInfo.nombreComercial,
+        tipoEmision: "1",
+        razonSocial: companyInfo.razonSocial.substring(0, 300),
+        nombreComercial: (
+          companyInfo.nombreComercial || companyInfo.razonSocial
+        ).substring(0, 300),
         ruc: companyInfo.ruc,
-        codDoc: companyInfo.codDoc,
-        estab: companyInfo.establecimiento,
-        ptoEmi: companyInfo.puntoEmision,
+        codDoc: "01",
+        estab,
+        ptoEmi,
         secuencial,
-        dirMatriz: companyInfo.direccionMatriz,
+        dirMatriz: companyInfo.direccionMatriz.substring(0, 300),
       },
       infoFactura: {
         fechaEmision,
-        dirEstablecimiento: companyInfo.direccionMatriz,
+        dirEstablecimiento: companyInfo.direccionMatriz.substring(0, 300),
         obligadoContabilidad: "NO",
         tipoIdentificacionComprador,
-        razonSocialComprador:
-          customerData?.business_name || customerData?.name || "",
+        razonSocialComprador: (
+          customerData?.business_name ||
+          customerData?.name ||
+          "CONSUMIDOR FINAL"
+        ).substring(0, 300),
         identificacionComprador:
           customerData?.identification || "9999999999999",
         totalSinImpuestos: subtotal,
         totalDescuento: 0,
-        totalImpuestos: [
+        totalConImpuestos: [
           {
             codigo: "2",
-            codigoPorcentaje: "2",
+            codigoPorcentaje: "4", // Código IVA 15%
             baseImponible: subtotal,
             tarifa: 15,
             valor: iva,
@@ -183,24 +205,12 @@ export const sriService = {
         ],
         importeTotal: total,
         moneda: "USD",
-        pagos: [
-          {
-            formaPago,
-            total,
-          },
-        ],
+        pagos: [{ formaPago, total }],
       },
-      detalles: {
-        detalle: detalles,
-      },
+      detalles: { detalle: detalles },
     };
-
-    return invoiceData;
   },
 
-  /**
-   * Envía la factura al SRI a través de la API
-   */
   async sendInvoiceToSRI(
     saleId: string,
     invoiceData: InvoiceData
@@ -208,40 +218,39 @@ export const sriService = {
     try {
       const response = await fetch("/api/sri/send-invoice", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          saleId,
-          invoiceData,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ saleId, invoiceData }),
       });
 
+      const result: unknown = await response.json();
+      const r = isRecord(result) ? result : {};
+
+      const message =
+        typeof r.message === "string"
+          ? r.message
+          : typeof r.error === "string"
+          ? r.error
+          : "Error en servidor SRI";
+
       if (!response.ok) {
-        const error = await response.json();
-        return {
-          success: false,
-          errorMessage: error.message || "Error al enviar factura al SRI",
-        };
+        return { success: false, errorMessage: message };
       }
 
-      const result = await response.json();
-      console.log("Respuesta de la API SRI:", result);
-      
       return {
-        success: true,
-        accessKey: result.accessKey || undefined,
-        authorizationNumber: result.authorizationNumber || undefined,
-        errorMessage: result.error ? result.error : undefined,
+        success: typeof r.success === "boolean" ? r.success : true,
+        accessKey: typeof r.accessKey === "string" ? r.accessKey : undefined,
+        authorizationNumber:
+          typeof r.authorizationNumber === "string"
+            ? r.authorizationNumber
+            : undefined,
+        errorMessage: typeof r.error === "string" ? r.error : undefined,
       };
     } catch (error) {
       console.error("Error sending invoice to SRI:", error);
       return {
         success: false,
-        errorMessage:
-          error instanceof Error ? error.message : "Error desconocido",
+        errorMessage: error instanceof Error ? error.message : "Error de red",
       };
     }
   },
 };
-

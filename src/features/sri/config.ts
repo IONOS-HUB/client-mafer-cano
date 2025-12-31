@@ -36,12 +36,23 @@ export function getSRICompanyInfo(): SRICompanyInfo | null {
  * Verifica si la facturación electrónica está habilitada
  */
 export function isSRIEnabled(): boolean {
-  const hasCertificate = !!(process.env.SRI_P12_URL || process.env.SRI_P12_PATH);
-  return (
-    hasCertificate &&
-    !!process.env.SRI_P12_PASSWORD &&
-    !!process.env.NEXT_PUBLIC_SRI_RUC &&
-    !!process.env.NEXT_PUBLIC_SRI_RAZON_SOCIAL
+  const isServer = typeof window === "undefined";
+  
+  // 1. Datos públicos (visibles en todo lugar)
+  const hasPublicData = !!(
+    process.env.NEXT_PUBLIC_SRI_RUC && 
+    process.env.NEXT_PUBLIC_SRI_RAZON_SOCIAL
   );
-}
 
+  // Si estamos en el navegador, solo validamos lo que podemos ver
+  if (!isServer) {
+    return hasPublicData;
+  }
+
+  // 2. Datos privados (solo visibles en el servidor/CMD)
+  const hasCertificate = !!(process.env.SRI_P12_URL || process.env.SRI_P12_PATH);
+  const hasPassword = !!process.env.SRI_P12_PASSWORD;
+
+  // En el servidor, validamos que TODO esté completo
+  return hasPublicData && hasCertificate && hasPassword;
+}
