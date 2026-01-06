@@ -17,8 +17,8 @@ Cree un archivo `.env.local` en la raíz del proyecto con el siguiente contenido
 # ============================================
 # CONFIGURACIÓN SUPABASE (ya existente)
 # ============================================
-PUBLIC_SUPABASE_URL=tu_url_supabase
-PUBLIC_SUPABASE_ANON=tu_key_supabase
+NEXT_PUBLIC_SUPABASE_URL=tu_url_supabase
+NEXT_PUBLIC_SUPABASE_ANON=tu_key_supabase
 
 # ============================================
 # CONFIGURACIÓN SRI - FACTURACIÓN ELECTRÓNICA
