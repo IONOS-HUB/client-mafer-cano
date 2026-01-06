@@ -107,7 +107,7 @@ export const salesService = {
         hasCertificate: !!(process.env.SRI_P12_URL || process.env.SRI_P12_PATH),
         hasPassword: !!process.env.SRI_P12_PASSWORD,
         hasRuc: !!process.env.NEXT_PUBLIC_SRI_RUC,
-        hasRazonSocial: !!process.env.NEXT_PUBLIC_SRI_RAZON_SOCIAL,
+        hasRazonSocial: !!process.env.PUBLIC_SRI_RAZON_SOCIAL,
       });
     } else {
       // LOG PARA EL NAVEGADOR: Solo mostramos lo que es público
