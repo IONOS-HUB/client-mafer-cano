@@ -104,7 +104,7 @@ export const salesService = {
     if (isServer) {
       // LOG PARA EL CMD: Aquí sí podemos ver todo
       console.log("Variables de entorno SRI (Servidor):", {
-        hasCertificate: !!(process.env.SRI_P12_URL || process.env.SRI_P12_PATH),
+        hasCertificate: !!(process.env.SRI_P12_PATH || process.env.SRI_P12_URL),
         hasPassword: !!process.env.SRI_P12_PASSWORD,
         hasRuc: !!process.env.NEXT_PUBLIC_SRI_RUC,
         hasRazonSocial: !!process.env.PUBLIC_SRI_RAZON_SOCIAL,
