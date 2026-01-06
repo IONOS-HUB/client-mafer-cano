@@ -18,7 +18,7 @@ Cree un archivo `.env.local` en la raíz del proyecto con el siguiente contenido
 # CONFIGURACIÓN SUPABASE (ya existente)
 # ============================================
 NEXT_PUBLIC_SUPABASE_URL=tu_url_supabase
-NEXT_PUBLIC_SUPABASE_ANON=tu_key_supabase
+NEXT_PUBLIC_SUPABASE_ANON_KEY=tu_key_supabase
 
 # ============================================
 # CONFIGURACIÓN SRI - FACTURACIÓN ELECTRÓNICA
@@ -26,12 +26,12 @@ NEXT_PUBLIC_SUPABASE_ANON=tu_key_supabase
 
 # Información de la Empresa (Públicas)
 NEXT_PUBLIC_SRI_RUC=1003573167001
-PUBLIC_SRI_RAZON_SOCIAL=MAFER CANO
-PUBLIC_SRI_NOMBRE_COMERCIAL=MAFER CANO
-PUBLIC_SRI_DIRECCION_MATRIZ=Av. Camilo Ponce y Av. Ricardo Sánchez
-PUBLIC_SRI_ESTABLECIMIENTO=001
-PUBLIC_SRI_PUNTO_EMISION=001
-PUBLIC_SRI_AMBIENTE=1
+NEXT_PUBLIC_SRI_RAZON_SOCIAL=MAFER CANO
+NEXT_PUBLIC_SRI_NOMBRE_COMERCIAL=MAFER CANO
+NEXT_PUBLIC_SRI_DIRECCION_MATRIZ=Av. Camilo Ponce y Av. Ricardo Sánchez
+NEXT_PUBLIC_SRI_ESTABLECIMIENTO=001
+NEXT_PUBLIC_SRI_PUNTO_EMISION=001
+NEXT_PUBLIC_SRI_AMBIENTE=1
 # Ambiente: "1" = Pruebas, "2" = Producción
 
 # Certificado de Firma Electrónica (Privadas - solo servidor)
@@ -53,10 +53,10 @@ SRI_P12_PASSWORD=tu_contraseña_del_certificado
 Reemplace los siguientes valores con su información real:
 
 1. **NEXT_PUBLIC_SRI_RUC**: Su RUC
-2. **PUBLIC_SRI_RAZON_SOCIAL**: Razón social de su empresa
-3. **PUBLIC_SRI_DIRECCION_MATRIZ**: Dirección matriz de su empresa
-4. **PUBLIC_SRI_ESTABLECIMIENTO**: Número de establecimiento (ej: "001")
-5. **PUBLIC_SRI_PUNTO_EMISION**: Punto de emisión (ej: "001")
+2. **NEXT_PUBLIC_SRI_RAZON_SOCIAL**: Razón social de su empresa
+3. **NEXT_PUBLIC_SRI_DIRECCION_MATRIZ**: Dirección matriz de su empresa
+4. **NEXT_PUBLIC_SRI_ESTABLECIMIENTO**: Número de establecimiento (ej: "001")
+5. **NEXT_PUBLIC_SRI_PUNTO_EMISION**: Punto de emisión (ej: "001")
 6. **SRI_P12_PATH**: Nombre de su archivo .p12 en la carpeta config/
 7. **SRI_P12_PASSWORD**: Contraseña de su certificado .p12
 
@@ -100,7 +100,7 @@ Para verificar que todo está configurado correctamente:
 
 - ✅ El archivo `.env.local` NO debe subirse a Git (ya está en .gitignore)
 - ✅ El certificado `.p12` NO debe subirse a Git (ya está en .gitignore)
-- ✅ Use ambiente de pruebas (`PUBLIC_SRI_AMBIENTE=1`) hasta que todo funcione correctamente
+- ✅ Use ambiente de pruebas (`NEXT_PUBLIC_SRI_AMBIENTE=1`) hasta que todo funcione correctamente
 - ✅ Asegúrese de tener activado el ambiente de pruebas en su cuenta del SRI
 
 ## Solución de Problemas

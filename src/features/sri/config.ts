@@ -7,11 +7,11 @@ import { SRICompanyInfo } from "./types";
 export function getSRICompanyInfo(): SRICompanyInfo | null {
   // Verificar si las variables requeridas están configuradas
   const ruc = process.env.NEXT_PUBLIC_SRI_RUC;
-  const razonSocial = process.env.PUBLIC_SRI_RAZON_SOCIAL;
-  const direccionMatriz = process.env.PUBLIC_SRI_DIRECCION_MATRIZ;
-  const establecimiento = process.env.PUBLIC_SRI_ESTABLECIMIENTO || "001";
-  const puntoEmision = process.env.PUBLIC_SRI_PUNTO_EMISION || "001";
-  const ambiente = process.env.PUBLIC_SRI_AMBIENTE || "1"; // "1" = pruebas, "2" = producción
+  const razonSocial = process.env.NEXT_PUBLIC_SRI_RAZON_SOCIAL;
+  const direccionMatriz = process.env.NEXT_PUBLIC_SRI_DIRECCION_MATRIZ;
+  const establecimiento = process.env.NEXT_PUBLIC_SRI_ESTABLECIMIENTO || "001";
+  const puntoEmision = process.env.NEXT_PUBLIC_SRI_PUNTO_EMISION || "001";
+  const ambiente = process.env.NEXT_PUBLIC_SRI_AMBIENTE || "1"; // "1" = pruebas, "2" = producción
 
   if (!ruc || !razonSocial || !direccionMatriz) {
     console.warn(
@@ -23,7 +23,7 @@ export function getSRICompanyInfo(): SRICompanyInfo | null {
   return {
     ruc,
     razonSocial,
-    nombreComercial: process.env.PUBLIC_SRI_NOMBRE_COMERCIAL,
+    nombreComercial: process.env.NEXT_PUBLIC_SRI_NOMBRE_COMERCIAL,
     direccionMatriz,
     establecimiento,
     puntoEmision,
@@ -41,7 +41,7 @@ export function isSRIEnabled(): boolean {
   // 1. Datos públicos (visibles en todo lugar)
   const hasPublicData = !!(
     process.env.NEXT_PUBLIC_SRI_RUC && 
-    process.env.PUBLIC_SRI_RAZON_SOCIAL
+    process.env.NEXT_PUBLIC_SRI_RAZON_SOCIAL
   );
 
   // Si estamos en el navegador, solo validamos lo que podemos ver
