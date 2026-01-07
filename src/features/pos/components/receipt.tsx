@@ -23,6 +23,12 @@ export interface ReceiptData {
         phone?: string;
     };
     isDuplicate?: boolean;
+    sriData?: {
+        accessKey?: string;
+        authorizationNumber?: string;
+        authorizedAt?: string;
+        status?: string;
+    };
 }
 
 interface ReceiptProps {
@@ -164,6 +170,43 @@ export const Receipt: React.FC<ReceiptProps> = ({ data, printId = "receipt-print
                         <p className="mt-1">CAMBIO: <span>${data.change.toFixed(2)}</span></p>
                     )}
                 </div>
+
+                {/* SRI Data - Only show if authorized */}
+                {data.sriData?.status === 'authorized' && data.sriData.accessKey && (
+                    <>
+                        <div className="w-full border-b-2 border-black border-dashed my-2" />
+                        
+                        <div className="mb-4 text-xs leading-relaxed">
+                            <p className="text-center font-bold text-sm mb-2">DATOS DE AUTORIZACION SRI</p>
+                            
+                            <div className="mb-2">
+                                <p className="font-bold">CLAVE DE ACCESO:</p>
+                                <p className="break-all">{data.sriData.accessKey}</p>
+                            </div>
+                            
+                            {data.sriData.authorizationNumber && (
+                                <div className="mb-2">
+                                    <p className="font-bold">No. AUTORIZACION:</p>
+                                    <p className="break-all">{data.sriData.authorizationNumber}</p>
+                                </div>
+                            )}
+                            
+                            {data.sriData.authorizedAt && (
+                                <div className="mb-2">
+                                    <p className="font-bold">FECHA AUTORIZACION:</p>
+                                    <p>{new Date(data.sriData.authorizedAt).toLocaleString('es-EC', {
+                                        year: 'numeric',
+                                        month: '2-digit',
+                                        day: '2-digit',
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                        second: '2-digit'
+                                    })}</p>
+                                </div>
+                            )}
+                        </div>
+                    </>
+                )}
 
                 {/* QR Code */}
                 <div className="flex justify-center mb-6">

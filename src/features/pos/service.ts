@@ -205,6 +205,9 @@ export const salesService = {
               accessKey: updateData.sri_access_key,
               authorizationNumber: updateData.sri_authorization_number,
             });
+            
+            // Actualizar saleData con los nuevos valores del SRI
+            Object.assign(saleData, updateData);
           }
 
           if (!sriResult.success) {
@@ -221,13 +224,15 @@ export const salesService = {
         const errorMessage =
           error instanceof Error ? error.message : "Error desconocido";
 
+        const errorData = {
+          sri_status: "error",
+          sri_error_message: errorMessage,
+          sri_sent_at: new Date().toISOString(),
+        };
+
         const { error: updateError } = await supabase
           .from("sales")
-          .update({
-            sri_status: "error",
-            sri_error_message: errorMessage,
-            sri_sent_at: new Date().toISOString(),
-          })
+          .update(errorData)
           .eq("id", saleData.id);
 
         if (updateError) {
@@ -236,6 +241,9 @@ export const salesService = {
             updateError
           );
         }
+        
+        // Actualizar saleData con el estado de error
+        Object.assign(saleData, errorData);
         // No lanzamos error para no bloquear la venta
       }
     } else {

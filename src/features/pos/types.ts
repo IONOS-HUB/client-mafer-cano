@@ -20,6 +20,12 @@ export interface Sale {
     invoice_number?: string; // Número de factura generado automáticamente
     customer_data?: any; // Datos del cliente para facturación
     created_at: string;
+    sri_access_key?: string;
+    sri_authorization_number?: string;
+    sri_status?: string;
+    sri_error_message?: string;
+    sri_sent_at?: string;
+    sri_authorized_at?: string;
 }
 
 export type PaymentMethod = "cash" | "card" | "transfer";

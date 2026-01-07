@@ -276,6 +276,12 @@ export function POSTerminal() {
           address: process.env.NEXT_PUBLIC_BUSINESS_ADDRESS || "",
           phone: process.env.NEXT_PUBLIC_BUSINESS_PHONE || "",
         },
+        sriData: {
+          accessKey: saleResult.sri_access_key,
+          authorizationNumber: saleResult.sri_authorization_number,
+          authorizedAt: saleResult.sri_authorized_at,
+          status: saleResult.sri_status,
+        },
       };
 
       setLastSale(receiptData);
