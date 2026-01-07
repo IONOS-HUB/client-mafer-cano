@@ -2,9 +2,10 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
-  // Forzamos a Next.js a no tocar NADA relacionado con la firma electrónica
+  // Transpilamos estos paquetes para resolver problemas de ESM/CommonJS
+  transpilePackages: ["open-factura"],
+  // Mantenemos estos como externos para evitar problemas de bundling
   serverExternalPackages: [
-    "open-factura",
     "xmldom",
     "xpath",
     "@xmldom/xmldom",
