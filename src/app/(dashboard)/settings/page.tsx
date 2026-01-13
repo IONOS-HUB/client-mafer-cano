@@ -7,6 +7,7 @@ import { Printer, CheckCircle2, BookOpen, Percent, Save, Loader2 } from "lucide-
 import { useState, useEffect } from "react";
 import { Receipt, ReceiptData } from "@/features/pos/components/receipt";
 import { ivaService } from "@/features/iva/service";
+import { getSRICompanyInfo } from "@/features/sri/config";
 import { toast } from "sonner";
 import Link from "next/link";
 
@@ -90,7 +91,20 @@ export default function SettingsPage() {
                 ruc: process.env.NEXT_PUBLIC_BUSINESS_RUC || "1003573167001",
                 address: process.env.NEXT_PUBLIC_BUSINESS_ADDRESS || "Av. Camilo Ponce y Av. Ricardo Sánchez",
                 phone: process.env.NEXT_PUBLIC_BUSINESS_PHONE || "0998007892",
-            }
+            },
+            sriData: (() => {
+                const companyInfo = getSRICompanyInfo();
+                if (!companyInfo) return undefined;
+                
+                return {
+                    accessKey: "1201202601100357316700120010010000003136797107911",
+                    authorizationNumber: "0501202601179251243300120010030398371900000000016",
+                    authorizedAt: new Date().toISOString(),
+                    status: "authorized",
+                    ambiente: companyInfo.ambiente,
+                    obligadoContabilidad: "SI" as const,
+                };
+            })()
         };
         setTestData(testData);
 

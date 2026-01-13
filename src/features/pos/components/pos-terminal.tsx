@@ -24,6 +24,7 @@ import { InvoiceDialog, PaymentDetails } from "./invoice-dialog";
 import { Receipt, ReceiptData } from "./receipt";
 import { useEffect } from "react";
 import { ivaService } from "@/features/iva/service";
+import { getSRICompanyInfo } from "@/features/sri/config";
 
 export function POSTerminal() {
   const [saleStarted, setSaleStarted] = useState(false);
@@ -315,6 +316,11 @@ export function POSTerminal() {
           authorizationNumber: saleResult.sri_authorization_number,
           authorizedAt: saleResult.sri_authorized_at,
           status: saleResult.sri_status,
+          ambiente: (() => {
+            const companyInfo = getSRICompanyInfo();
+            return companyInfo?.ambiente as "1" | "2" | undefined;
+          })(),
+          obligadoContabilidad: "SI" as const,
         },
       };
 

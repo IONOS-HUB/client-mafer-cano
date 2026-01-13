@@ -30,6 +30,8 @@ export interface ReceiptData {
         authorizationNumber?: string;
         authorizedAt?: string;
         status?: string;
+        ambiente?: "1" | "2"; // "1" = pruebas, "2" = producción
+        obligadoContabilidad?: "SI" | "NO";
     };
 }
 
@@ -95,7 +97,18 @@ export const Receipt: React.FC<ReceiptProps> = ({ data, printId = "receipt-print
 
                 {/* Header Info */}
                 <div className="text-center mb-4 uppercase tracking-wide text-base font-bold">
-                    {data.businessInfo.ruc && <p>RUC: {data.businessInfo.ruc}</p>}
+                    {data.businessInfo.ruc && (
+                        <>
+                            <p>RUC: {data.businessInfo.ruc}</p>
+                            {/* Tipo de RUC: Persona Jurídica (empieza con 10) */}
+                            {data.businessInfo.ruc.startsWith('10') && (
+                                <p className="mt-1 text-xs font-normal">PERSONA JURÍDICA</p>
+                            )}
+                            {data.businessInfo.ruc.startsWith('09') && (
+                                <p className="mt-1 text-xs font-normal">PERSONA NATURAL</p>
+                            )}
+                        </>
+                    )}
                     {data.businessInfo.address && <p className="mt-1">Dir: {data.businessInfo.address}</p>}
                     {data.businessInfo.phone && <p className="mt-1">Tel: {data.businessInfo.phone}</p>}
                 </div>
@@ -105,40 +118,64 @@ export const Receipt: React.FC<ReceiptProps> = ({ data, printId = "receipt-print
 
                 {/* Invoice Details */}
                 <div className="text-center mb-2">
-                    <p className="text-lg">FACTURA ELECTRONICA</p>
+                    <p className="text-lg">COMPROBANTE DE Facturación Electrónica</p>
                     {data.isDuplicate && (
                         <p className="text-base mt-1 font-bold border-2 border-black py-1 px-2 inline-block">DUPLICADO</p>
                     )}
-                    <p className="text-xl mt-1">No. {data.invoiceNumber}</p>
-                    <p className="text-base mt-1">Fecha: {data.date}</p>
                 </div>
 
-                {/* SRI Data - Show after invoice details if authorized */}
-                {data.sriData?.status === 'authorized' && data.sriData.accessKey && (
+                {/* SRI Information - Always show if SRI data exists */}
+                {data.sriData && (
                     <div className="mb-2 mt-2 text-xs leading-relaxed">
-                        <div className="mb-2">
-                            <p className="font-bold">CLAVE DE ACCESO:</p>
-                            <p className="break-all">{data.sriData.accessKey}</p>
+                        {data.sriData.authorizedAt && (
+                            <div className="mb-1">
+                                <p className="font-bold">ESTADO SRI:</p>
+                                <p>{new Date(data.sriData.authorizedAt).toISOString().replace('Z', '-05:00')}</p>
+                            </div>
+                        )}
+                        
+                        <div className="mb-1">
+                            <p className="font-bold">No. N°:</p>
+                            <p>{data.invoiceNumber}</p>
                         </div>
                         
                         {data.sriData.authorizationNumber && (
-                            <div className="mb-2">
-                                <p className="font-bold">No. AUTORIZACION:</p>
+                            <div className="mb-1">
+                                <p className="font-bold">NÚMERO DE AUTORIZACIÓN:</p>
                                 <p className="break-all">{data.sriData.authorizationNumber}</p>
                             </div>
                         )}
                         
                         {data.sriData.authorizedAt && (
-                            <div className="mb-2">
-                                <p className="font-bold">FECHA AUTORIZACION:</p>
-                                <p>{new Date(data.sriData.authorizedAt).toLocaleString('es-EC', {
-                                    year: 'numeric',
-                                    month: '2-digit',
-                                    day: '2-digit',
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                    second: '2-digit'
-                                })}</p>
+                            <div className="mb-1">
+                                <p className="font-bold">FECHA Y HORA DE AUTORIZACIÓN:</p>
+                                <p>{new Date(data.sriData.authorizedAt).toISOString().replace('Z', '-05:00')}</p>
+                            </div>
+                        )}
+                        
+                        {data.sriData.ambiente && (
+                            <div className="mb-1">
+                                <p className="font-bold">AMBIENTE:</p>
+                                <p>{data.sriData.ambiente === "2" ? "PRODUCCION" : "PRUEBAS"}</p>
+                            </div>
+                        )}
+                        
+                        <div className="mb-1">
+                            <p className="font-bold">EMISIÓN:</p>
+                            <p>NORMAL</p>
+                        </div>
+                        
+                        {data.sriData.accessKey && (
+                            <div className="mb-1">
+                                <p className="font-bold">CLAVE DE ACCESO:</p>
+                                <p className="break-all text-[10px] leading-tight font-mono">{data.sriData.accessKey}</p>
+                            </div>
+                        )}
+                        
+                        {data.sriData.obligadoContabilidad !== undefined && (
+                            <div className="mb-1">
+                                <p className="font-bold">OBLIGADO A LLEVAR CONTABILIDAD:</p>
+                                <p>{data.sriData.obligadoContabilidad}</p>
                             </div>
                         )}
                     </div>
