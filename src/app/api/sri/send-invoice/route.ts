@@ -724,41 +724,128 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      /* 13) Consultar Autorización SRI */
+      /* 13) Consultar Autorización SRI con retry */
       console.log("[SRI] Consultando autorización...");
       let authorizationNumber: string | undefined;
       let authorizationStatus: string | undefined;
 
-      try {
-        const authorizationResult = await documentAuthorization(
-          accessKey,
-          authorizationUrl
-        );
-
-        console.log(
-          "[SRI] Autorización:",
-          JSON.stringify(authorizationResult, null, 2)
-        );
-
-        const ar = authorizationResult as SriAuthorizationResponse;
-        const res = ar?.RespuestaAutorizacionComprobante;
-
-        if (res?.autorizaciones?.autorizacion) {
-          const authData = res.autorizaciones.autorizacion;
-          const auth = Array.isArray(authData) ? authData[0] : authData;
-
-          authorizationStatus = auth.estado;
-          if (authorizationStatus === "AUTORIZADO") {
-            authorizationNumber = auth.numeroAutorizacion;
-          }
-        } else {
-          authorizationStatus = ar.estado;
-          authorizationNumber = ar.numeroAutorizacion;
+      // Función auxiliar para buscar número de autorización recursivamente
+      const searchForAuthNumber = (obj: unknown): string | undefined => {
+        if (!isRecord(obj)) return undefined;
+        
+        // Buscar en propiedades comunes
+        if (typeof obj.numeroAutorizacion === "string" && obj.numeroAutorizacion.length > 10) {
+          return obj.numeroAutorizacion;
         }
-      } catch (e: unknown) {
-        console.error("[SRI] Error autorización:", e);
-        authorizationStatus = authorizationStatus || "ERROR_AUTORIZACION";
+        
+        // Buscar recursivamente
+        for (const key in obj) {
+          const value = obj[key];
+          if (typeof value === "string" && key.toLowerCase().includes("autorizacion") && value.length > 10) {
+            return value;
+          }
+          if (isRecord(value)) {
+            const found = searchForAuthNumber(value);
+            if (found) return found;
+          }
+          if (Array.isArray(value)) {
+            for (const item of value) {
+              const found = searchForAuthNumber(item);
+              if (found) return found;
+            }
+          }
+        }
+        return undefined;
+      };
+
+      // Intentar consultar autorización con retry (el SRI puede tardar unos segundos)
+      const maxRetries = 3;
+      const retryDelay = 2000; // 2 segundos entre intentos
+      
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          if (attempt > 1) {
+            console.log(`[SRI] Reintento ${attempt} de ${maxRetries} para obtener autorización...`);
+            await new Promise((resolve) => setTimeout(resolve, retryDelay));
+          }
+
+          const authorizationResult = await documentAuthorization(
+            accessKey,
+            authorizationUrl
+          );
+
+          console.log(
+            `[SRI] Autorización (intento ${attempt}):`,
+            JSON.stringify(authorizationResult, null, 2)
+          );
+
+          const ar = authorizationResult as SriAuthorizationResponse;
+          const res = ar?.RespuestaAutorizacionComprobante;
+
+          if (res?.autorizaciones?.autorizacion) {
+            const authData = res.autorizaciones.autorizacion;
+            const auth = Array.isArray(authData) ? authData[0] : authData;
+
+            authorizationStatus = auth.estado;
+            // Extraer número de autorización si existe, independientemente del estado
+            if (auth.numeroAutorizacion) {
+              authorizationNumber = auth.numeroAutorizacion;
+              console.log("[SRI] ✅ Número de autorización encontrado:", authorizationNumber);
+              break; // Salir del loop si encontramos el número
+            }
+            
+            console.log("[SRI] Estado de autorización:", {
+              estado: authorizationStatus,
+              numeroAutorizacion: auth.numeroAutorizacion,
+              tieneNumero: !!auth.numeroAutorizacion,
+            });
+          } else {
+            // Fallback: intentar obtener del objeto raíz
+            authorizationStatus = ar.estado;
+            authorizationNumber = ar.numeroAutorizacion;
+            
+            if (authorizationNumber) {
+              console.log("[SRI] ✅ Número de autorización encontrado (fallback):", authorizationNumber);
+              break;
+            }
+            
+            console.log("[SRI] Fallback - Estado:", {
+              estado: authorizationStatus,
+              numeroAutorizacion: ar.numeroAutorizacion,
+            });
+          }
+          
+          // Si aún no tenemos el número, buscar recursivamente
+          if (!authorizationNumber) {
+            authorizationNumber = searchForAuthNumber(authorizationResult);
+            if (authorizationNumber) {
+              console.log("[SRI] ✅ Número de autorización encontrado (búsqueda recursiva):", authorizationNumber);
+              break;
+            }
+          }
+          
+          // Si el estado es AUTORIZADO pero no tenemos número, seguir intentando
+          if (authorizationStatus === "AUTORIZADO" && !authorizationNumber && attempt < maxRetries) {
+            console.log("[SRI] ⚠️ Estado AUTORIZADO pero sin número, reintentando...");
+            continue;
+          }
+          
+          // Si encontramos el número o el estado no es AUTORIZADO, salir
+          if (authorizationNumber || (authorizationStatus && authorizationStatus !== "AUTORIZADO")) {
+            break;
+          }
+        } catch (e: unknown) {
+          console.error(`[SRI] Error autorización (intento ${attempt}):`, e);
+          if (attempt === maxRetries) {
+            authorizationStatus = authorizationStatus || "ERROR_AUTORIZACION";
+          }
+        }
       }
+      
+      console.log("[SRI] Resultado final de autorización:", {
+        authorizationNumber,
+        authorizationStatus,
+      });
 
       return ok({
         success: true,

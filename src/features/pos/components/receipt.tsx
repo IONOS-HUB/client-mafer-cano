@@ -118,7 +118,7 @@ export const Receipt: React.FC<ReceiptProps> = ({ data, printId = "receipt-print
 
                 {/* Invoice Details */}
                 <div className="text-center mb-2">
-                    <p className="text-lg">COMPROBANTE DE Facturación Electrónica</p>
+                    <p className="text-lg">COMPROBANTE DE FACTURACIÓN ELECTRÓNICA</p>
                     {data.isDuplicate && (
                         <p className="text-base mt-1 font-bold border-2 border-black py-1 px-2 inline-block">DUPLICADO</p>
                     )}
@@ -139,12 +139,12 @@ export const Receipt: React.FC<ReceiptProps> = ({ data, printId = "receipt-print
                             <p>{data.invoiceNumber}</p>
                         </div>
                         
-                        {data.sriData.authorizationNumber && (
-                            <div className="mb-1">
-                                <p className="font-bold">NÚMERO DE AUTORIZACIÓN:</p>
-                                <p className="break-all">{data.sriData.authorizationNumber}</p>
-                            </div>
-                        )}
+                        <div className="mb-1">
+                            <p className="font-bold">NÚMERO DE AUTORIZACIÓN:</p>
+                            <p className="break-all">
+                                {data.sriData.authorizationNumber || "PENDIENTE"}
+                            </p>
+                        </div>
                         
                         {data.sriData.authorizedAt && (
                             <div className="mb-1">
