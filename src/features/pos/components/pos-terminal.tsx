@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { SaleItem, PaymentMethod } from "../types";
+import { SaleItem } from "../types";
 import { Product, Service } from "@/features/products/types";
 import { CustomerData } from "../invoice-types";
 import { productService } from "@/features/products/service";
@@ -23,6 +23,7 @@ import { AddItemDialog } from "./add-item-dialog";
 import { InvoiceDialog, PaymentDetails } from "./invoice-dialog";
 import { Receipt, ReceiptData } from "./receipt";
 import { useEffect } from "react";
+import { ivaService } from "@/features/iva/service";
 
 export function POSTerminal() {
   const [saleStarted, setSaleStarted] = useState(false);
@@ -31,6 +32,22 @@ export function POSTerminal() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
   const [lastSale, setLastSale] = useState<ReceiptData | null>(null);
+  const [ivaRate, setIvaRate] = useState<number>(0.15);
+
+  useEffect(() => {
+    // Load IVA value on mount
+    const loadIVA = async () => {
+      try {
+        const value = await ivaService.getIVAValue();
+        setIvaRate(value);
+      } catch (error) {
+        console.error("Error loading IVA value:", error);
+        // Use default value if error
+        setIvaRate(0.15);
+      }
+    };
+    loadIVA();
+  }, []);
 
   useEffect(() => {
     if (!lastSale) return;
@@ -207,6 +224,17 @@ export function POSTerminal() {
     return items.reduce((sum, item) => sum + item.subtotal, 0);
   };
 
+  const calculateSubtotal = () => {
+    const total = calculateTotal();
+    return total / (1 + ivaRate);
+  };
+
+  const calculateIVA = () => {
+    const total = calculateTotal();
+    const subtotal = calculateSubtotal();
+    return total - subtotal;
+  };
+
   const handleFinishPurchase = () => {
     if (items.length === 0) {
       toast.error("Agrega productos para finalizar la compra");
@@ -247,6 +275,10 @@ export function POSTerminal() {
       }
 
       // Prepare receipt data with the invoice number from database
+      const totalAmount = calculateTotal();
+      const subtotalAmount = calculateSubtotal();
+      const ivaAmount = calculateIVA();
+
       const receiptData: ReceiptData = {
         invoiceNumber:
           saleResult.invoice_number || `${Date.now().toString().slice(-8)}`,
@@ -265,8 +297,10 @@ export function POSTerminal() {
           unitPrice: item.unitPrice,
           subtotal: item.subtotal,
         })),
-        subtotal: calculateTotal() / 1.15,
-        total: calculateTotal(),
+        subtotal: subtotalAmount,
+        iva: ivaAmount,
+        ivaRate: ivaRate,
+        total: totalAmount,
         paymentMethod: paymentDetails?.method || "cash",
         amountReceived: paymentDetails?.amountReceived,
         change: paymentDetails?.change,
@@ -428,7 +462,12 @@ export function POSTerminal() {
           <div className="space-y-4">
             <div className="flex justify-between text-lg">
               <span className="text-muted-foreground">Subtotal:</span>
-              <span className="font-semibold">${total.toFixed(2)}</span>
+              <span className="font-semibold">${calculateSubtotal().toFixed(2)}</span>
+            </div>
+
+            <div className="flex justify-between text-lg">
+              <span className="text-muted-foreground">IVA {Math.round(ivaRate * 100)}%:</span>
+              <span className="font-semibold">${calculateIVA().toFixed(2)}</span>
             </div>
 
             <div className="border-t pt-4">

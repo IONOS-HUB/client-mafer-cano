@@ -12,6 +12,8 @@ export interface ReceiptData {
         subtotal: number;
     }>;
     subtotal: number;
+    iva?: number;
+    ivaRate?: number;
     total: number;
     paymentMethod: string;
     amountReceived?: number;
@@ -39,10 +41,10 @@ interface ReceiptProps {
 export const Receipt: React.FC<ReceiptProps> = ({ data, printId = "receipt-print" }) => {
     if (!data) return null;
 
-    // Calculate tax (assuming 15% included in total)
-    const taxRate = 0.15;
-    const subtotal = data.total / (1 + taxRate);
-    const tax = data.total - subtotal;
+    // Use IVA from data or calculate it
+    const ivaRate = data.ivaRate ?? 0.15;
+    const subtotal = data.subtotal;
+    const tax = data.iva ?? (data.total - subtotal);
 
     const uniqueId = `receipt-${printId}`;
     
@@ -182,7 +184,7 @@ export const Receipt: React.FC<ReceiptProps> = ({ data, printId = "receipt-print
                         <span>${subtotal.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between w-full max-w-[65mm] mt-1">
-                        <span>IVA 15%:</span>
+                        <span>IVA {Math.round(ivaRate * 100)}%:</span>
                         <span>${tax.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between w-full max-w-[65mm] text-2xl mt-2 border-t-2 border-black border-dashed pt-2">

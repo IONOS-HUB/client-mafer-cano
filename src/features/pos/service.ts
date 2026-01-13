@@ -3,6 +3,7 @@ import { Sale } from "./types";
 import { CustomerData } from "./invoice-types";
 import { sriService } from "../sri/service";
 import { getSRICompanyInfo, isSRIEnabled } from "../sri/config";
+import { ivaService } from "../iva/service";
 
 export const salesService = {
   async createSale(
@@ -125,6 +126,14 @@ export const salesService = {
       try {
         const companyInfo = getSRICompanyInfo();
         if (companyInfo) {
+          // Get IVA value from database
+          let ivaRate = 0.15; // Default value
+          try {
+            ivaRate = await ivaService.getIVAValue();
+          } catch (error) {
+            console.error("Error fetching IVA value, using default:", error);
+          }
+
           const saleRecord = saleData as unknown as {
             id: string;
             total: number;
@@ -144,7 +153,8 @@ export const salesService = {
           const invoiceData = sriService.generateInvoiceData(
             completeSale,
             companyInfo,
-            customerData
+            customerData,
+            ivaRate
           );
 
           const sriResult = await sriService.sendInvoiceToSRI(

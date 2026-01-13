@@ -75,12 +75,42 @@ export const sriService = {
   },
 
   /**
+   * Obtiene el código de porcentaje según el IVA rate
+   * Según el SRI de Ecuador:
+   * - 0%: código "0"
+   * - 12%: código "2"
+   * - 14%: código "6"
+   * - 15%: código "4" (más común)
+   * - 8%: código "7"
+   * Por defecto, para 15% o valores no reconocidos, retorna "4"
+   */
+  getIvaCodePorcentaje(ivaRate: number): string {
+    const percentage = Math.round(ivaRate * 100);
+    switch (percentage) {
+      case 0:
+        return "0";
+      case 12:
+        return "2";
+      case 14:
+        return "6";
+      case 15:
+        return "4";
+      case 8:
+        return "7";
+      default:
+        // Por defecto, usar código para 15% si no se reconoce
+        return "4";
+    }
+  },
+
+  /**
    * Genera los datos con el formato exacto que espera el esquema Off-line del SRI
    */
   generateInvoiceData(
     sale: Sale,
     companyInfo: SRICompanyInfo,
-    customerData?: CustomerData
+    customerData?: CustomerData,
+    ivaRate: number = 0.15
   ): InvoiceData {
     // 1. Padding de Secuencial (9 dígitos), Establecimiento (3) y Punto Emisión (3)
     const invoiceNumber = sale.invoice_number || "";
@@ -94,7 +124,7 @@ export const sriService = {
     const total = this.round(
       sale.items.reduce((sum, item) => sum + (item.subtotal || 0), 0)
     );
-    const ivaRate = 0.15; // Tarifa 15% vigente en Ecuador
+    // IVA rate is passed as parameter (default 0.15 = 15%)
     const subtotal = this.round(total / (1 + ivaRate));
     const iva = this.round(total - subtotal);
 
@@ -140,8 +170,8 @@ export const sriService = {
         impuestos: [
           {
             codigo: "2", // Impuesto IVA
-            codigoPorcentaje: "4", // Código "4" es para IVA 15%
-            tarifa: 15,
+            codigoPorcentaje: this.getIvaCodePorcentaje(ivaRate), // Código según porcentaje de IVA
+            tarifa: Math.round(ivaRate * 100), // Convertir a porcentaje
             baseImponible: precioTotalSinImpuesto,
             valor: ivaItem,
           },
@@ -197,9 +227,9 @@ export const sriService = {
         totalConImpuestos: [
           {
             codigo: "2",
-            codigoPorcentaje: "4", // Código IVA 15%
+            codigoPorcentaje: this.getIvaCodePorcentaje(ivaRate), // Código según porcentaje de IVA
             baseImponible: subtotal,
-            tarifa: 15,
+            tarifa: Math.round(ivaRate * 100), // Convertir a porcentaje
             valor: iva,
           },
         ],
