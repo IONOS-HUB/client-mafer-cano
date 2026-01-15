@@ -9,6 +9,7 @@ import {
   LogOut,
   Settings,
   Receipt,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabaseBrowser } from "@/lib/supabase/client"; // Singleton Supabase client for browser
@@ -22,6 +23,7 @@ const navigation = [
   { name: "Productos y Servicios", href: "/products", icon: Package },
   { name: "Historial de Inventario", href: "/inventory", icon: BarChart3 },
   { name: "Historial de Ventas", href: "/sales", icon: Receipt },
+  { name: "Clientes", href: "/customers", icon: Users },
   { name: "Configuración", href: "/settings", icon: Settings },
 ];
 

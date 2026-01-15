@@ -59,6 +59,40 @@ export const customerService = {
     return data as Customer[];
   },
 
+  async getCustomersWithFilters(
+    page = 1,
+    limit = 10,
+    filters?: {
+      search?: string;
+      identificationType?: string;
+    }
+  ) {
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+
+    let query = supabase
+      .from("customers")
+      .select("*", { count: "exact" });
+
+    if (filters?.identificationType && filters.identificationType !== "all") {
+      query = query.eq("identification_type", filters.identificationType);
+    }
+
+    if (filters?.search) {
+      const searchPattern = `%${filters.search}%`;
+      query = query.or(
+        `identification.ilike.${searchPattern},name.ilike.${searchPattern},business_name.ilike.${searchPattern},email.ilike.${searchPattern},phone.ilike.${searchPattern}`
+      );
+    }
+
+    const { data, error, count } = await query
+      .order("created_at", { ascending: false })
+      .range(from, to);
+
+    if (error) throw error;
+    return { data, count };
+  },
+
   async getCustomerById(id: string): Promise<Customer | null> {
     const { data, error } = await supabase
       .from("customers")
