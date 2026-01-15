@@ -8,6 +8,7 @@ import {
   BarChart3,
   LogOut,
   Settings,
+  Receipt,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabaseBrowser } from "@/lib/supabase/client"; // Singleton Supabase client for browser
@@ -20,6 +21,7 @@ const navigation = [
   { name: "Punto de Venta", href: "/pos", icon: ShoppingCart },
   { name: "Productos y Servicios", href: "/products", icon: Package },
   { name: "Historial de Inventario", href: "/inventory", icon: BarChart3 },
+  { name: "Historial de Ventas", href: "/sales", icon: Receipt },
   { name: "Configuración", href: "/settings", icon: Settings },
 ];
 

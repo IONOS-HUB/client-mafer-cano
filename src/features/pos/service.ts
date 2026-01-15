@@ -278,6 +278,52 @@ export const salesService = {
     return data as Sale[];
   },
 
+  async getSalesWithFilters(
+    page = 1,
+    limit = 10,
+    filters?: {
+      startDate?: string;
+      endDate?: string;
+      paymentMethod?: string;
+      search?: string;
+    }
+  ) {
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+
+    let query = supabase
+      .from("sales")
+      .select("*", { count: "exact" });
+
+    if (filters?.paymentMethod && filters.paymentMethod !== "all") {
+      query = query.eq("payment_method", filters.paymentMethod);
+    }
+
+    if (filters?.startDate) {
+      query = query.gte("created_at", `${filters.startDate}T00:00:00`);
+    }
+
+    if (filters?.endDate) {
+      query = query.lte("created_at", `${filters.endDate}T23:59:59`);
+    }
+
+    if (filters?.search) {
+      // Búsqueda por número de factura o datos del cliente
+      // Usamos múltiples condiciones OR para buscar en diferentes campos
+      const searchPattern = `%${filters.search}%`;
+      query = query.or(
+        `invoice_number.ilike.${searchPattern},customer_data->>name.ilike.${searchPattern},customer_data->>business_name.ilike.${searchPattern},customer_data->>identification.ilike.${searchPattern}`
+      );
+    }
+
+    const { data, error, count } = await query
+      .order("created_at", { ascending: false })
+      .range(from, to);
+
+    if (error) throw error;
+    return { data, count };
+  },
+
   async getSaleById(id: string) {
     const { data, error } = await supabase
       .from("sales")
