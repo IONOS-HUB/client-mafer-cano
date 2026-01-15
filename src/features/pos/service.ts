@@ -288,8 +288,11 @@ export const salesService = {
       search?: string;
     }
   ) {
-    const from = (page - 1) * limit;
-    const to = from + limit - 1;
+    // Si hay búsqueda, necesitamos obtener más datos para filtrar correctamente
+    // ya que la búsqueda en campos JSONB null no funciona bien en Supabase
+    const fetchLimit = filters?.search ? 1000 : limit; // Obtener más datos si hay búsqueda
+    const from = filters?.search ? 0 : (page - 1) * limit;
+    const to = filters?.search ? fetchLimit - 1 : from + limit - 1;
 
     let query = supabase
       .from("sales")
@@ -307,21 +310,128 @@ export const salesService = {
       query = query.lte("created_at", `${filters.endDate}T23:59:59`);
     }
 
-    if (filters?.search) {
-      // Búsqueda por número de factura o datos del cliente
-      // Usamos múltiples condiciones OR para buscar en diferentes campos
-      const searchPattern = `%${filters.search}%`;
-      query = query.or(
-        `invoice_number.ilike.${searchPattern},customer_data->>name.ilike.${searchPattern},customer_data->>business_name.ilike.${searchPattern},customer_data->>identification.ilike.${searchPattern}`
-      );
-    }
+    // NO filtrar por búsqueda en la base de datos cuando hay búsqueda
+    // Obtener todos los registros que coincidan con otros filtros y filtrar en el cliente
+    // Esto es necesario porque necesitamos buscar en campos JSONB que pueden ser null
 
     const { data, error, count } = await query
       .order("created_at", { ascending: false })
       .range(from, to);
 
-    if (error) throw error;
-    return { data, count };
+    if (error) {
+      console.error("Error fetching sales:", error);
+      throw error;
+    }
+
+    // Si hay búsqueda, filtrar también en el cliente para campos JSONB
+    // Esto es necesario porque Supabase no maneja bien nulls en campos JSONB con OR
+    let filteredData = data || [];
+    let filteredCount = count || 0;
+    
+    if (filters?.search && data) {
+      const searchLower = filters.search.toLowerCase().trim();
+      
+      // Detectar si se está buscando consumidor final
+      // Buscar cualquier parte de "consumidor final" o "cf"
+      const finalConsumerKeywords = ["consumidor", "final", "cf", "consu", "fina"];
+      const isSearchingForFinalConsumer = finalConsumerKeywords.some(keyword => 
+        searchLower.includes(keyword) || keyword.includes(searchLower)
+      );
+      
+      filteredData = data.filter((sale: any) => {
+        // Verificar invoice_number
+        const matchesInvoice = sale.invoice_number?.toLowerCase().includes(searchLower);
+        
+        // Filtrar por campos de customer_data (pueden ser null)
+        const customerData = sale.customer_data;
+        
+        // Si no hay customer_data (consumidor final)
+        if (!customerData) {
+          // Incluir si coincide con invoice_number o si se busca consumidor final
+          return matchesInvoice || isSearchingForFinalConsumer;
+        }
+        
+        // Si hay customer_data, buscar en todos los campos
+        const matchesName = customerData?.name?.toLowerCase().includes(searchLower);
+        const matchesBusinessName = customerData?.business_name?.toLowerCase().includes(searchLower);
+        const matchesIdentification = customerData?.identification?.toLowerCase().includes(searchLower);
+        const matchesEmail = customerData?.email?.toLowerCase().includes(searchLower);
+        const matchesPhone = customerData?.phone?.toLowerCase().includes(searchLower);
+        
+        return matchesInvoice || matchesName || matchesBusinessName || matchesIdentification || matchesEmail || matchesPhone;
+      });
+      
+      // Si hay búsqueda y filtramos en el cliente, necesitamos obtener el count correcto
+      // Obtenemos todos los datos que coinciden con los otros filtros y luego contamos los filtrados
+      if (filters.search) {
+        let countQuery = supabase.from("sales").select("*", { count: "exact" });
+        
+        if (filters.paymentMethod && filters.paymentMethod !== "all") {
+          countQuery = countQuery.eq("payment_method", filters.paymentMethod);
+        }
+        if (filters.startDate) {
+          countQuery = countQuery.gte("created_at", `${filters.startDate}T00:00:00`);
+        }
+        if (filters.endDate) {
+          countQuery = countQuery.lte("created_at", `${filters.endDate}T23:59:59`);
+        }
+        
+        const { data: allDataForCount } = await countQuery
+          .order("created_at", { ascending: false })
+          .limit(10000); // Límite razonable para contar
+        
+        if (allDataForCount) {
+          const searchLower = filters.search.toLowerCase().trim();
+          
+          // Detectar si se está buscando consumidor final
+          const finalConsumerKeywords = ["consumidor", "final", "cf", "consu", "fina"];
+          const isSearchingForFinalConsumer = finalConsumerKeywords.some(keyword => 
+            searchLower.includes(keyword) || keyword.includes(searchLower)
+          );
+          
+          const filtered = allDataForCount.filter((sale: any) => {
+            const matchesInvoice = sale.invoice_number?.toLowerCase().includes(searchLower);
+            const customerData = sale.customer_data;
+            
+            // Si no hay customer_data (consumidor final)
+            if (!customerData) {
+              return matchesInvoice || isSearchingForFinalConsumer;
+            }
+            
+            const matchesName = customerData?.name?.toLowerCase().includes(searchLower);
+            const matchesBusinessName = customerData?.business_name?.toLowerCase().includes(searchLower);
+            const matchesIdentification = customerData?.identification?.toLowerCase().includes(searchLower);
+            const matchesEmail = customerData?.email?.toLowerCase().includes(searchLower);
+            const matchesPhone = customerData?.phone?.toLowerCase().includes(searchLower);
+            return matchesInvoice || matchesName || matchesBusinessName || matchesIdentification || matchesEmail || matchesPhone;
+          });
+          filteredCount = filtered.length;
+        }
+      }
+      
+      // Aplicar paginación después del filtrado
+      const startIndex = (page - 1) * limit;
+      const endIndex = startIndex + limit;
+      filteredData = filteredData.slice(startIndex, endIndex);
+    }
+
+    // Log para debugging
+    console.log("Sales fetched:", {
+      count: filteredCount,
+      dataLength: filteredData?.length,
+      page,
+      limit,
+      filters,
+      sampleSale: filteredData?.[0] ? {
+        id: filteredData[0].id,
+        total: filteredData[0].total,
+        invoice_number: (filteredData[0] as any).invoice_number,
+        customer_name: (filteredData[0] as any).customer_data?.name,
+        created_at: (filteredData[0] as any).created_at,
+      } : null,
+    });
+
+    return { data: filteredData, count: filteredCount };
   },
 
   async getSaleById(id: string) {

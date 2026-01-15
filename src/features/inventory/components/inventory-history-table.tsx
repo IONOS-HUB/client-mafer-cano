@@ -320,7 +320,7 @@ export function InventoryHistoryTable() {
                                 <TrendingUp className="h-3.5 w-3.5" />
                                 Tipo de Ajuste
                             </label>
-                            <Select value={type} onValueChange={handleTypeChange}>
+                            <Select value={type} onValueChange={handleTypeChange} defaultValue="all">
                                 <SelectTrigger className="h-9">
                                     <SelectValue placeholder="Todos los tipos" />
                                 </SelectTrigger>

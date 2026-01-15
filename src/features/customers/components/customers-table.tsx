@@ -195,7 +195,7 @@ export function CustomersTable() {
                                 <CreditCard className="h-3.5 w-3.5" />
                                 Tipo de Identificación
                             </label>
-                            <Select value={identificationType} onValueChange={handleIdentificationTypeChange}>
+                            <Select value={identificationType} onValueChange={handleIdentificationTypeChange} defaultValue="all">
                                 <SelectTrigger className="h-9">
                                     <SelectValue placeholder="Todos los tipos" />
                                 </SelectTrigger>

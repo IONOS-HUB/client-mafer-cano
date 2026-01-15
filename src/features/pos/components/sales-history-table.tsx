@@ -122,13 +122,29 @@ export function SalesHistoryTable() {
                 endDate
             };
             const { data, count } = await salesService.getSalesWithFilters(page, pageSize, filters);
+            
+            // Log para debugging
+            console.log("Sales loaded in component:", {
+                count,
+                dataLength: data?.length,
+                page,
+                pageSize,
+                filters,
+                sales: data?.map((s: any) => ({
+                    id: s.id,
+                    total: s.total,
+                    invoice_number: s.invoice_number,
+                    payment_method: s.payment_method,
+                })),
+            });
+            
             setSales(data as SaleWithDetails[]);
             if (count !== null) {
                 setTotalCount(count);
                 setTotalPages(Math.ceil(count / pageSize));
             }
         } catch (error) {
-            console.error(error);
+            console.error("Error loading sales:", error);
             toast.error("Error al cargar el historial de ventas");
         } finally {
             setIsLoading(false);
@@ -345,7 +361,7 @@ export function SalesHistoryTable() {
                                 <CreditCard className="h-3.5 w-3.5" />
                                 Método de Pago
                             </label>
-                            <Select value={paymentMethod} onValueChange={handlePaymentMethodChange}>
+                            <Select value={paymentMethod} onValueChange={handlePaymentMethodChange} defaultValue="all">
                                 <SelectTrigger className="h-9">
                                     <SelectValue placeholder="Todos los métodos" />
                                 </SelectTrigger>
