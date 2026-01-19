@@ -130,7 +130,7 @@ export function SalesHistoryTable() {
                 page,
                 pageSize,
                 filters,
-                sales: data?.map((s: any) => ({
+                sales: data?.map((s: SaleWithDetails) => ({
                     id: s.id,
                     total: s.total,
                     invoice_number: s.invoice_number,
@@ -254,7 +254,7 @@ export function SalesHistoryTable() {
         }
     };
 
-    const getCustomerName = (customerData: any) => {
+    const getCustomerName = (customerData: CustomerData) => {
         if (!customerData) return "Consumidor Final";
         return customerData.name || customerData.business_name || "Consumidor Final";
     };
@@ -586,8 +586,8 @@ export function SalesHistoryTable() {
                                             <TableCell>
                                                 <div className="flex items-center gap-2">
                                                     <User className="h-3.5 w-3.5 text-muted-foreground" />
-                                                    <span className="truncate" title={getCustomerName(sale.customer_data)}>
-                                                        {getCustomerName(sale.customer_data)}
+                                                    <span className="truncate" title={getCustomerName(sale.customer_data as CustomerData)}>
+                                                        {getCustomerName(sale.customer_data as CustomerData)}
                                                     </span>
                                                 </div>
                                             </TableCell>

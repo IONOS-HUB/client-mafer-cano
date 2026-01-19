@@ -338,7 +338,7 @@ export const salesService = {
         searchLower.includes(keyword) || keyword.includes(searchLower)
       );
       
-      filteredData = data.filter((sale: any) => {
+      filteredData = data.filter((sale: Sale) => {
         // Verificar invoice_number
         const matchesInvoice = sale.invoice_number?.toLowerCase().includes(searchLower);
         
@@ -389,7 +389,7 @@ export const salesService = {
             searchLower.includes(keyword) || keyword.includes(searchLower)
           );
           
-          const filtered = allDataForCount.filter((sale: any) => {
+          const filtered = allDataForCount.filter((sale: Sale) => {
             const matchesInvoice = sale.invoice_number?.toLowerCase().includes(searchLower);
             const customerData = sale.customer_data;
             
@@ -425,9 +425,9 @@ export const salesService = {
       sampleSale: filteredData?.[0] ? {
         id: filteredData[0].id,
         total: filteredData[0].total,
-        invoice_number: (filteredData[0] as any).invoice_number,
-        customer_name: (filteredData[0] as any).customer_data?.name,
-        created_at: (filteredData[0] as any).created_at,
+        invoice_number: (filteredData[0]).invoice_number,
+        customer_name: (filteredData[0]).customer_data?.name,
+        created_at: (filteredData[0]).created_at,
       } : null,
     });
 
