@@ -92,6 +92,18 @@ export const Receipt: React.FC<ReceiptProps> = ({ data, printId = "receipt-print
                         box-sizing: border-box !important;
                         padding-left: 1mm !important;
                         padding-right: 1mm !important;
+                        overflow: hidden !important;
+                    }
+                    [data-receipt-id="${uniqueId}"] .flex {
+                        flex-wrap: nowrap !important;
+                    }
+                    [data-receipt-id="${uniqueId}"] .text-right {
+                        white-space: nowrap !important;
+                        flex-shrink: 0 !important;
+                        overflow: visible !important;
+                    }
+                    [data-receipt-id="${uniqueId}"] .flex {
+                        overflow: hidden !important;
                     }
                     [data-receipt-id="${uniqueId}"] p {
                         margin: 0 !important;
@@ -207,17 +219,17 @@ export const Receipt: React.FC<ReceiptProps> = ({ data, printId = "receipt-print
                 {/* Items Table */}
                 <div className="mb-1">
                     <div className="flex mb-0.5 text-[10px] leading-tight">
-                        <div className="w-[12%] text-center">CANT</div>
-                        <div className="w-[50%] px-0.5">DETALLE</div>
-                        <div className="w-[38%] text-right">TOTAL</div>
+                        <div className="w-[10%] text-center shrink-0">CANT</div>
+                        <div className="flex-1 px-0.5 min-w-0">DETALLE</div>
+                        <div className="w-[35%] text-right shrink-0">TOTAL</div>
                     </div>
                     {data.items.map((item, index) => (
                         <div key={index} className="flex mb-0.5 text-[10px] items-start leading-tight">
-                            <div className="w-[12%] text-center leading-tight">{item.quantity}</div>
-                            <div className="w-[50%] px-0.5 uppercase leading-tight">
+                            <div className="w-[12%] text-center leading-tight shrink-0">{item.quantity}</div>
+                            <div className="flex-1 px-0.5 uppercase leading-tight min-w-0">
                                 {item.description}
                             </div>
-                            <div className="w-[38%] text-right leading-tight">
+                            <div className="w-[30%] text-right leading-tight shrink-0">
                                 ${item.subtotal.toFixed(2)}
                             </div>
                         </div>
@@ -228,17 +240,17 @@ export const Receipt: React.FC<ReceiptProps> = ({ data, printId = "receipt-print
 
                 {/* Totals */}
                 <div className="flex flex-col items-end mb-1 text-[10px] leading-tight">
-                    <div className="flex justify-between w-full">
-                        <span className="leading-tight text-[10px]">SUBTOTAL:</span>
-                        <span className="leading-tight text-[10px]">${subtotal.toFixed(2)}</span>
+                    <div className="flex justify-between w-full items-center">
+                        <span className="leading-tight text-[10px] shrink-0">SUBTOTAL:</span>
+                        <span className="leading-tight text-[10px] shrink-0 ml-1">${subtotal.toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between w-full">
-                        <span className="leading-tight text-[10px]">IVA {Math.round(ivaRate * 100)}%:</span>
-                        <span className="leading-tight text-[10px]">${tax.toFixed(2)}</span>
+                    <div className="flex justify-between w-full items-center">
+                        <span className="leading-tight text-[10px] shrink-0">IVA {Math.round(ivaRate * 100)}%:</span>
+                        <span className="leading-tight text-[10px] shrink-0 ml-1">${tax.toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between w-full text-[10px] mt-0.5 border-t border-black border-dashed pt-0.5">
-                        <span className="font-bold leading-tight text-[10px]">TOTAL:</span>
-                        <span className="font-bold leading-tight text-[10px]">${data.total.toFixed(2)}</span>
+                    <div className="flex justify-between w-full text-[10px] mt-0.5 border-t border-black border-dashed pt-0.5 items-center">
+                        <span className="font-bold leading-tight text-[10px] shrink-0">TOTAL:</span>
+                        <span className="font-bold leading-tight text-[10px] shrink-0 ml-1">${data.total.toFixed(2)}</span>
                     </div>
                 </div>
 
