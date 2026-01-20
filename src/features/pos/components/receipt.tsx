@@ -70,6 +70,8 @@ export const Receipt: React.FC<ReceiptProps> = ({ data, printId = "receipt-print
                         position: absolute !important;
                         left: 0 !important;
                         top: 0 !important;
+                        width: 70mm !important;
+                        max-width: 70mm !important;
                         font-family: 'Courier New', Courier, monospace !important;
                         font-weight: 600 !important;
                         font-size: 10px !important;
@@ -82,6 +84,14 @@ export const Receipt: React.FC<ReceiptProps> = ({ data, printId = "receipt-print
                         box-sizing: border-box !important;
                         overflow-wrap: break-word !important;
                         word-wrap: break-word !important;
+                        overflow: hidden !important;
+                    }
+                    [data-receipt-id="${uniqueId}"] > div {
+                        width: 100% !important;
+                        max-width: 100% !important;
+                        box-sizing: border-box !important;
+                        padding-left: 1mm !important;
+                        padding-right: 1mm !important;
                     }
                     [data-receipt-id="${uniqueId}"] p {
                         margin: 0 !important;
@@ -106,7 +116,7 @@ export const Receipt: React.FC<ReceiptProps> = ({ data, printId = "receipt-print
                 data-receipt-id={uniqueId}
             >
 
-            <div className="w-full pl-2 pr-2 pt-2 pb-2 text-left leading-tight">
+            <div className="w-full pl-1 pr-1 pt-2 pb-2 text-left leading-tight">
                 {/* Logo */}
                 <div className="flex justify-center mb-1">
                     <img
@@ -197,17 +207,17 @@ export const Receipt: React.FC<ReceiptProps> = ({ data, printId = "receipt-print
                 {/* Items Table */}
                 <div className="mb-1">
                     <div className="flex mb-0.5 text-[10px] leading-tight">
-                        <div className="w-[15%] text-center">CANT</div>
-                        <div className="w-[55%] px-0.5">DETALLE</div>
-                        <div className="w-[30%] text-right">TOTAL</div>
+                        <div className="w-[12%] text-center">CANT</div>
+                        <div className="w-[50%] px-0.5">DETALLE</div>
+                        <div className="w-[38%] text-right">TOTAL</div>
                     </div>
                     {data.items.map((item, index) => (
                         <div key={index} className="flex mb-0.5 text-[10px] items-start leading-tight">
-                            <div className="w-[15%] text-center leading-tight">{item.quantity}</div>
-                            <div className="w-[55%] px-0.5 uppercase leading-tight">
+                            <div className="w-[12%] text-center leading-tight">{item.quantity}</div>
+                            <div className="w-[50%] px-0.5 uppercase leading-tight">
                                 {item.description}
                             </div>
-                            <div className="w-[30%] text-right leading-tight">
+                            <div className="w-[38%] text-right leading-tight">
                                 ${item.subtotal.toFixed(2)}
                             </div>
                         </div>
