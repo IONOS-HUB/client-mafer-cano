@@ -79,6 +79,9 @@ export const Receipt: React.FC<ReceiptProps> = ({ data, printId = "receipt-print
                         print-color-adjust: exact !important;
                         line-height: 1.2 !important;
                         page-break-inside: avoid !important;
+                        box-sizing: border-box !important;
+                        overflow-wrap: break-word !important;
+                        word-wrap: break-word !important;
                     }
                     [data-receipt-id="${uniqueId}"] p {
                         margin: 0 !important;
@@ -87,6 +90,10 @@ export const Receipt: React.FC<ReceiptProps> = ({ data, printId = "receipt-print
                     }
                     [data-receipt-id="${uniqueId}"] div {
                         margin: 0 !important;
+                    }
+                    [data-receipt-id="${uniqueId}"] span {
+                        word-break: break-word !important;
+                        overflow-wrap: break-word !important;
                     }
                     [data-receipt-id="${uniqueId}"] img {
                         max-width: 100% !important;
@@ -99,7 +106,7 @@ export const Receipt: React.FC<ReceiptProps> = ({ data, printId = "receipt-print
                 data-receipt-id={uniqueId}
             >
 
-            <div className="w-full pl-1 pr-2 pt-2 pb-2 text-left leading-tight">
+            <div className="w-full pl-2 pr-2 pt-2 pb-2 text-left leading-tight">
                 {/* Logo */}
                 <div className="flex justify-center mb-1">
                     <img
