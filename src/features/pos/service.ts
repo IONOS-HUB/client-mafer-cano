@@ -4,12 +4,32 @@ import { CustomerData } from "./invoice-types";
 import { sriService } from "../sri/service";
 import { getSRICompanyInfo, isSRIEnabled } from "../sri/config";
 import { ivaService } from "../iva/service";
+import { productService } from "../products/service";
 
 export const salesService = {
   async createSale(
     sale: Omit<Sale, "id" | "created_at">,
     customerData?: CustomerData
   ) {
+    // 0. Validate product stock before creating anything
+    for (const item of sale.items) {
+      if (item.type !== "product" || !item.product) continue;
+      const { data: productData } = await supabase
+        .from("products")
+        .select("stock, description")
+        .eq("id", item.product.id)
+        .single();
+      if (!productData) {
+        throw new Error(`Producto no encontrado: ${item.product.description}`);
+      }
+      const newStock = productData.stock - item.quantity;
+      if (newStock < 0) {
+        throw new Error(
+          `Stock insuficiente para "${productData.description}". Disponible: ${productData.stock}, solicitado: ${item.quantity}`
+        );
+      }
+    }
+
     // 1. Crear la venta (cabecera) - el trigger asignará automáticamente el invoice_number
     const { data: saleData, error: saleError } = await supabase
       .from("sales")
@@ -66,6 +86,8 @@ export const salesService = {
           const previousStock = productData.stock;
           const newStock = previousStock - item.quantity;
 
+          await productService.updateStock(item.product.id, newStock);
+
           stockAdjustments.push({
             product_id: item.product.id,
             adjustment_type: "subtract",
@@ -80,7 +102,6 @@ export const salesService = {
       }
     }
 
-    // Insertar los ajustes de stock si hay productos
     if (stockAdjustments.length > 0) {
       const { error: adjustmentError } = await supabase
         .from("stock_adjustments")
@@ -88,7 +109,6 @@ export const salesService = {
 
       if (adjustmentError) {
         console.error("Error creating stock adjustments:", adjustmentError);
-        // No lanzamos error aquí para no bloquear la venta, pero lo registramos
       }
     }
 

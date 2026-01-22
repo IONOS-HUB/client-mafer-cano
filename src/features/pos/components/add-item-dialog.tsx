@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Product, Service } from "@/features/products/types";
 import { productService, serviceService } from "@/features/products/service";
 import {
@@ -12,9 +12,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Package, Wrench } from "lucide-react";
+import { Search, Package, Wrench, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { supabaseBrowser as supabase } from "@/lib/supabase/client";
 
 interface AddItemDialogProps {
   isOpen: boolean;
@@ -33,32 +34,61 @@ export function AddItemDialog({
   const [services, setServices] = useState<Service[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [servicePrice, setServicePrice] = useState<{ [key: string]: number }>(
     {}
+  );
+
+  const loadData = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      if (!isOpen) return;
+      const silent = opts?.silent ?? false;
+      if (!silent) {
+        setIsLoading(true);
+        setLoadError(false);
+      }
+      try {
+        const [productsData, servicesData] = await Promise.all([
+          productService.getProducts(),
+          serviceService.getServices(),
+        ]);
+        setProducts(productsData);
+        setServices(servicesData);
+      } catch (error) {
+        console.error(error);
+        if (!silent) {
+          setLoadError(true);
+          toast.error("Error al cargar productos y servicios");
+        }
+      } finally {
+        if (!silent) setIsLoading(false);
+      }
+    },
+    [isOpen]
   );
 
   useEffect(() => {
     if (isOpen) {
       loadData();
     }
-  }, [isOpen]);
+  }, [isOpen, loadData]);
 
-  const loadData = async () => {
-    setIsLoading(true);
-    try {
-      const [productsData, servicesData] = await Promise.all([
-        productService.getProducts(),
-        serviceService.getServices(),
-      ]);
-      setProducts(productsData);
-      setServices(servicesData);
-    } catch (error) {
-      console.error(error);
-      toast.error("Error al cargar productos y servicios");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  useEffect(() => {
+    if (!isOpen) return;
+    const channel = supabase
+      .channel("add-item-products")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "products" },
+        () => {
+          loadData({ silent: true });
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isOpen, loadData]);
 
   const filteredProducts = products.filter(
     (p) =>
@@ -103,15 +133,30 @@ export function AddItemDialog({
         </DialogHeader>
 
         <div className="space-y-5 py-2">
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por nombre o código..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-11 h-11 rounded-lg border-2 focus:border-primary"
-            />
+          {/* Search + Refresh */}
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nombre o código..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-11 h-11 rounded-lg border-2 focus:border-primary"
+              />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-11 w-11 shrink-0"
+              onClick={() => loadData()}
+              disabled={isLoading}
+              title="Actualizar lista (productos y stock)"
+            >
+              <RefreshCw
+                className={cn("h-5 w-5", isLoading && "animate-spin")}
+              />
+            </Button>
           </div>
 
           {/* Tabs */}
@@ -134,9 +179,26 @@ export function AddItemDialog({
                   <p className="text-center py-8 text-muted-foreground">
                     Cargando...
                   </p>
+                ) : loadError ? (
+                  <div className="flex flex-col items-center gap-4 py-8">
+                    <p className="text-center text-muted-foreground">
+                      No se pudieron cargar los productos. Revisa la conexión e
+                      inténtalo de nuevo.
+                    </p>
+                    <Button
+                      variant="outline"
+                      onClick={() => loadData()}
+                      className="gap-2"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      Reintentar
+                    </Button>
+                  </div>
                 ) : filteredProducts.length === 0 ? (
                   <p className="text-center py-8 text-muted-foreground">
-                    No se encontraron productos
+                    {products.length === 0
+                      ? "No hay productos registrados."
+                      : "No hay resultados para tu búsqueda."}
                   </p>
                 ) : (
                   filteredProducts.map((product) => (
@@ -197,9 +259,26 @@ export function AddItemDialog({
                   <p className="text-center py-8 text-muted-foreground">
                     Cargando...
                   </p>
+                ) : loadError ? (
+                  <div className="flex flex-col items-center gap-4 py-8">
+                    <p className="text-center text-muted-foreground">
+                      No se pudieron cargar los servicios. Revisa la conexión e
+                      inténtalo de nuevo.
+                    </p>
+                    <Button
+                      variant="outline"
+                      onClick={() => loadData()}
+                      className="gap-2"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      Reintentar
+                    </Button>
+                  </div>
                 ) : filteredServices.length === 0 ? (
                   <p className="text-center py-8 text-muted-foreground">
-                    No se encontraron servicios
+                    {services.length === 0
+                      ? "No hay servicios registrados."
+                      : "No hay resultados para tu búsqueda."}
                   </p>
                 ) : (
                   filteredServices.map((service) => (
