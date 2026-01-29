@@ -31,7 +31,7 @@ export interface ReceiptData {
         authorizedAt?: string;
         status?: string;
         ambiente?: "1" | "2"; // "1" = pruebas, "2" = producción
-        obligadoContabilidad?: "SI" | "NO";
+        obligadoContabilidad?: "NO" | "SI";
     };
 }
 

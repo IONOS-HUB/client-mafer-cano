@@ -36,7 +36,7 @@ interface InvoiceData {
   infoFactura: {
     fechaEmision: string;
     dirEstablecimiento: string;
-    obligadoContabilidad: "SI" | "NO";
+    obligadoContabilidad: "NO" | "SI";
     tipoIdentificacionComprador: string;
     razonSocialComprador?: string;
     identificacionComprador: string;
@@ -213,8 +213,8 @@ export const sriService = {
       infoFactura: {
         fechaEmision,
         dirEstablecimiento: companyInfo.direccionMatriz.substring(0, 300),
-        obligadoContabilidad: "NO",
-        tipoIdentificacionComprador,
+        obligadoContabilidad: "NO" as const,
+        tipoIdentificacionComprador,  
         razonSocialComprador: (
           customerData?.business_name ||
           customerData?.name ||

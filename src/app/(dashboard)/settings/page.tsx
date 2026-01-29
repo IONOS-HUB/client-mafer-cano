@@ -102,7 +102,7 @@ export default function SettingsPage() {
                     authorizedAt: new Date().toISOString(),
                     status: "authorized",
                     ambiente: companyInfo.ambiente,
-                    obligadoContabilidad: "SI" as const,
+                    obligadoContabilidad: "NO" as const,
                 };
             })()
         };

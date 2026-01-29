@@ -320,7 +320,7 @@ export function POSTerminal() {
             const companyInfo = getSRICompanyInfo();
             return companyInfo?.ambiente as "1" | "2" | undefined;
           })(),
-          obligadoContabilidad: "SI" as const,
+          obligadoContabilidad: "NO" as const,
         },
       };
 
