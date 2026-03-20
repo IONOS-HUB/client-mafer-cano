@@ -674,11 +674,41 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    /* 12) Envío a Recepción SRI */
+    /* 12) Envío a Recepción SRI con retry */
     console.log("📡 [SRI] Enviando a recepción...");
     let receptionResult: unknown;
     try {
-      receptionResult = await documentReception(signedXml, receptionUrl);
+      const maxReceptionRetries = 4;
+      const receptionRetryDelay = 4000;
+      let lastReceptionError: unknown;
+
+      for (let attempt = 1; attempt <= maxReceptionRetries; attempt++) {
+        try {
+          if (attempt > 1) {
+            console.log(`[SRI] Reintento recepción ${attempt}/${maxReceptionRetries} (esperando ${receptionRetryDelay}ms)...`);
+            await new Promise((r) => setTimeout(r, receptionRetryDelay));
+          }
+          receptionResult = await documentReception(signedXml, receptionUrl);
+          lastReceptionError = undefined;
+          break;
+        } catch (e: unknown) {
+          lastReceptionError = e;
+          const msg = errorMessage(e);
+          console.error(`[SRI] Error recepción (intento ${attempt}/${maxReceptionRetries}):`, msg);
+          // Si el error es un SOAP fault del servidor SRI (GenericJDBCException, etc.)
+          // o un error de red (ECONNRESET, ECONNREFUSED), reintentamos
+          const isTransient =
+            msg.includes("ECONNRESET") ||
+            msg.includes("ECONNREFUSED") ||
+            msg.includes("ETIMEDOUT") ||
+            msg.includes("GenericJDBCException") ||
+            msg.includes("Could not open connection") ||
+            msg.includes("soap:Server");
+          if (!isTransient) break; // Error no transitorio, no reintentar
+        }
+      }
+
+      if (lastReceptionError) throw lastReceptionError;
 
       const rr = isRecord(receptionResult) ? receptionResult : {};
       const wrapped = isRecord(rr.RespuestaRecepcionComprobante)
