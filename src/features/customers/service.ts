@@ -37,15 +37,22 @@ export const customerService = {
     id: string,
     updates: UpdateCustomerInput
   ): Promise<Customer> {
-    const { data, error } = await supabase
+    // Separate update from select to avoid PGRST116 when RLS prevents reading back
+    const { error } = await supabase
       .from("customers")
       .update(updates)
-      .eq("id", id)
-      .select()
-      .single();
+      .eq("id", id);
 
     if (error) throw error;
-    return data as Customer;
+
+    const { data, error: fetchError } = await supabase
+      .from("customers")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (fetchError) throw fetchError;
+    return (data ?? { id, ...updates }) as Customer;
   },
 
   async getCustomers(limit = 100) {
@@ -113,27 +120,22 @@ export const customerService = {
   async createOrUpdateCustomer(
     customer: CreateCustomerInput
   ): Promise<Customer> {
-    try {
-      // Primero intentar buscar el cliente por identificación
-      const existing = await this.getCustomerByIdentification(
-        customer.identification
-      );
+    // Primero intentar buscar el cliente por identificación
+    const existing = await this.getCustomerByIdentification(
+      customer.identification
+    );
 
-      if (existing) {
-        // Si existe, actualizar
-        console.log(
-          "Cliente existente encontrado, actualizando...",
-          existing.id
-        );
-        return await this.updateCustomer(existing.id, customer);
-      } else {
-        // Si no existe, crear
-        console.log("Cliente no encontrado, creando nuevo...");
-        return await this.createCustomer(customer);
-      }
-    } catch (error) {
-      console.error("Error en createOrUpdateCustomer:", error);
-      throw error;
+    if (existing) {
+      // Si existe, actualizar
+      console.log(
+        "Cliente existente encontrado, actualizando...",
+        existing.id
+      );
+      return await this.updateCustomer(existing.id, customer);
+    } else {
+      // Si no existe, crear
+      console.log("Cliente no encontrado, creando nuevo...");
+      return await this.createCustomer(customer);
     }
   },
 };

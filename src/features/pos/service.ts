@@ -36,7 +36,8 @@ export const salesService = {
       .insert({
         total: sale.total,
         payment_method: sale.payment_method,
-        customer_data: customerData || null,
+        customer_data:
+          customerData && typeof customerData === "object" ? customerData : null,
       })
       .select()
       .single();
