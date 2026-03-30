@@ -789,8 +789,8 @@ export async function POST(request: NextRequest) {
       };
 
       // Intentar consultar autorización con retry (el SRI puede tardar unos segundos)
-      const maxRetries = 3;
-      const retryDelay = 2000; // 2 segundos entre intentos
+      const maxRetries = 5;
+      const retryDelay = 2000; // 2 segundos entre intentos (total ~10s)
       
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {

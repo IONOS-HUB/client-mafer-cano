@@ -241,6 +241,22 @@ export const salesService = {
             Object.assign(saleData, updateData);
           }
 
+          // Si el documento fue recibido por el SRI pero aún no hay autorización,
+          // lanzar un retry en background para seguir consultando sin bloquear al usuario.
+          if (
+            sriResult.success &&
+            !sriResult.authorizationNumber &&
+            sriResult.accessKey
+          ) {
+            console.log(
+              "[SRI] Estado 'sent' sin autorización — iniciando retry en background..."
+            );
+            sriService.retryAuthorizationInBackground(
+              saleData.id,
+              sriResult.accessKey
+            );
+          }
+
           if (!sriResult.success) {
             console.error(
               "Error al enviar factura al SRI:",

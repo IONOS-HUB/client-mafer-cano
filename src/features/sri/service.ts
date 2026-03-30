@@ -241,6 +241,80 @@ export const sriService = {
     };
   },
 
+  /**
+   * Consulta el estado de autorización de una factura ya enviada al SRI.
+   */
+  async checkAuthorization(accessKey: string): Promise<{
+    authorizationNumber?: string;
+    authorizationStatus?: string;
+  }> {
+    const response = await fetch("/api/sri/check-authorization", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accessKey }),
+    });
+    const result: unknown = await response.json();
+    const r = isRecord(result) ? result : {};
+    return {
+      authorizationNumber: typeof r.authorizationNumber === "string" ? r.authorizationNumber : undefined,
+      authorizationStatus: typeof r.authorizationStatus === "string" ? r.authorizationStatus : undefined,
+    };
+  },
+
+  /**
+   * Reintenta obtener la autorización SRI en background (fire-and-forget).
+   * Actualiza Supabase cuando el SRI autoriza la factura.
+   * Se llama después de que una venta queda en estado "sent".
+   */
+  retryAuthorizationInBackground(
+    saleId: string,
+    accessKey: string,
+    onAuthorized?: (authorizationNumber: string) => void
+  ): void {
+    // Intervalos de espera en ms: 5s, 10s, 15s, 20s, 30s, 60s, 60s, 60s
+    const delays = [5000, 10000, 15000, 20000, 30000, 60000, 60000, 60000];
+
+    const attempt = async (index: number) => {
+      if (index >= delays.length) {
+        console.warn(`[SRI retry] Se agotaron los reintentos para venta ${saleId}`);
+        return;
+      }
+
+      await new Promise((r) => setTimeout(r, delays[index]));
+
+      try {
+        console.log(`[SRI retry] Intento ${index + 1}/${delays.length} para venta ${saleId}...`);
+        const { authorizationNumber } = await this.checkAuthorization(accessKey);
+
+        if (authorizationNumber) {
+          console.log(`[SRI retry] ✅ Autorizado: ${authorizationNumber}`);
+
+          // Actualizar Supabase con el número de autorización
+          const { supabaseBrowser } = await import("@/lib/supabase/client");
+          await supabaseBrowser
+            .from("sales")
+            .update({
+              sri_authorization_number: authorizationNumber,
+              sri_status: "authorized",
+              sri_authorized_at: new Date().toISOString(),
+            })
+            .eq("id", saleId);
+
+          onAuthorized?.(authorizationNumber);
+        } else {
+          // No autorizado aún, seguir reintentando
+          attempt(index + 1);
+        }
+      } catch (err) {
+        console.error(`[SRI retry] Error en intento ${index + 1}:`, err);
+        attempt(index + 1);
+      }
+    };
+
+    // Lanzar sin await (fire and forget)
+    attempt(0);
+  },
+
   async sendInvoiceToSRI(
     saleId: string,
     invoiceData: InvoiceData
