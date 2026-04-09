@@ -27,10 +27,11 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { Loader2, ChevronLeft, ChevronRight, Search, Filter, X, FileText, User, Printer, Calendar, CreditCard, DollarSign, Receipt } from "lucide-react";
+import { Loader2, ChevronLeft, ChevronRight, Search, Filter, X, FileText, User, Printer, Calendar, CreditCard, DollarSign, Receipt, RefreshCw } from "lucide-react";
 import { Receipt as ReceiptComponent, ReceiptData } from "./receipt";
 import { CustomerData } from "../invoice-types";
 import { toast } from "sonner";
+import { sriService } from "@/features/sri/service";
 
 interface SaleWithDetails {
     id: string;
@@ -101,6 +102,7 @@ export function SalesHistoryTable() {
     const [saleDetails, setSaleDetails] = useState<SaleDetails | null>(null);
     const [isLoadingSale, setIsLoadingSale] = useState(false);
     const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
+    const [isRetryingAuth, setIsRetryingAuth] = useState(false);
 
     // Debounce para búsqueda
     useEffect(() => {
@@ -216,6 +218,38 @@ export function SalesHistoryTable() {
             toast.error("Error al cargar los detalles de la venta");
         } finally {
             setIsLoadingSale(false);
+        }
+    };
+
+    const handleRetryAuthorization = async (saleId: string, accessKey: string) => {
+        setIsRetryingAuth(true);
+        try {
+            const { authorizationNumber } = await sriService.checkAuthorization(accessKey);
+            if (authorizationNumber) {
+                const { supabaseBrowser } = await import("@/lib/supabase/client");
+                await supabaseBrowser
+                    .from("sales")
+                    .update({
+                        sri_authorization_number: authorizationNumber,
+                        sri_status: "authorized",
+                        sri_authorized_at: new Date().toISOString(),
+                    })
+                    .eq("id", saleId);
+                toast.success("Factura autorizada por el SRI");
+                // Reload sale details and list
+                setSaleDetails((prev) =>
+                    prev
+                        ? { ...prev, sri_authorization_number: authorizationNumber, sri_status: "authorized", sri_authorized_at: new Date().toISOString() }
+                        : prev
+                );
+                await loadSales();
+            } else {
+                toast.info("El SRI aún no ha autorizado esta factura. Intenta nuevamente en unos minutos.");
+            }
+        } catch {
+            toast.error("Error al consultar autorización SRI");
+        } finally {
+            setIsRetryingAuth(false);
         }
     };
 
@@ -771,6 +805,19 @@ export function SalesHistoryTable() {
                                             <p className="text-xs font-semibold text-indigo-900 dark:text-indigo-100 break-all">
                                                 {saleDetails.sri_authorization_number || "PENDIENTE"}
                                             </p>
+                                            {!saleDetails.sri_authorization_number && saleDetails.sri_status === "sent" && saleDetails.sri_access_key && (
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="mt-1 h-6 text-[10px] px-2 border-indigo-300 text-indigo-700 hover:bg-indigo-50"
+                                                    disabled={isRetryingAuth}
+                                                    onClick={() => handleRetryAuthorization(saleDetails.id, saleDetails.sri_access_key!)}
+                                                >
+                                                    {isRetryingAuth ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                                                    Consultar autorización
+                                                </Button>
+                                            )}
                                         </div>
                                         
                                         {saleDetails.sri_authorized_at && (

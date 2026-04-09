@@ -42,12 +42,21 @@ import { toast } from "sonner";
 const customerSchema = z
   .object({
     identification_type: z.enum(["ruc", "cedula", "passport"]),
-    identification: z.string().min(10, "Identificación inválida"),
+    identification: z.string().min(1, "Identificación requerida"),
     business_name: z.string().optional(),
     name: z.string().optional(),
     email: z.string().email("Email inválido"),
     phone: z.string().min(10, "Teléfono inválido"),
     address: z.string().min(5, "Dirección inválida"),
+  })
+  .superRefine((data, ctx) => {
+    if (data.identification_type === "ruc" && !/^\d{13}$/.test(data.identification)) {
+      ctx.addIssue({ code: "custom", message: "RUC debe tener exactamente 13 dígitos", path: ["identification"] });
+    } else if (data.identification_type === "cedula" && !/^\d{10}$/.test(data.identification)) {
+      ctx.addIssue({ code: "custom", message: "Cédula debe tener exactamente 10 dígitos", path: ["identification"] });
+    } else if (data.identification_type === "passport" && data.identification.length < 5) {
+      ctx.addIssue({ code: "custom", message: "Pasaporte inválido (mínimo 5 caracteres)", path: ["identification"] });
+    }
   })
   .refine(
     (data) => {
@@ -136,8 +145,9 @@ export function InvoiceDialog({
   // Auto-completar datos del cliente cuando se ingresa la identificación
   useEffect(() => {
     const loadCustomerData = async () => {
-      // Solo buscar si la identificación tiene al menos 10 caracteres
-      if (!identification || identification.length < 10) {
+      // Solo buscar cuando la identificación tenga la longitud correcta según el tipo
+      const minLength = identificationType === "ruc" ? 13 : identificationType === "cedula" ? 10 : 5;
+      if (!identification || identification.length < minLength) {
         setCustomerFound(null);
         return;
       }
@@ -187,7 +197,7 @@ export function InvoiceDialog({
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [identification, step, form]);
+  }, [identification, identificationType, step, form]);
 
   // Resetear estado cuando cambia el tipo de identificación
   useEffect(() => {

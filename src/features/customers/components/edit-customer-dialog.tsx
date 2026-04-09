@@ -36,12 +36,21 @@ import { Loader2 } from "lucide-react";
 const customerSchema = z
     .object({
         identification_type: z.enum(["ruc", "cedula", "passport"]),
-        identification: z.string().min(10, "Identificación inválida"),
+        identification: z.string().min(1, "Identificación requerida"),
         business_name: z.string().optional(),
         name: z.string().optional(),
         email: z.string().email("Email inválido"),
         phone: z.string().min(10, "Teléfono inválido"),
         address: z.string().min(5, "Dirección inválida"),
+    })
+    .superRefine((data, ctx) => {
+        if (data.identification_type === "ruc" && !/^\d{13}$/.test(data.identification)) {
+            ctx.addIssue({ code: "custom", message: "RUC debe tener exactamente 13 dígitos", path: ["identification"] });
+        } else if (data.identification_type === "cedula" && !/^\d{10}$/.test(data.identification)) {
+            ctx.addIssue({ code: "custom", message: "Cédula debe tener exactamente 10 dígitos", path: ["identification"] });
+        } else if (data.identification_type === "passport" && data.identification.length < 5) {
+            ctx.addIssue({ code: "custom", message: "Pasaporte inválido (mínimo 5 caracteres)", path: ["identification"] });
+        }
     })
     .refine(
         (data) => {
