@@ -37,22 +37,21 @@ export const customerService = {
     id: string,
     updates: UpdateCustomerInput
   ): Promise<Customer> {
-    // Separate update from select to avoid PGRST116 when RLS prevents reading back
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("customers")
       .update(updates)
-      .eq("id", id);
+      .eq("id", id)
+      .select();
 
     if (error) throw error;
 
-    const { data, error: fetchError } = await supabase
-      .from("customers")
-      .select("*")
-      .eq("id", id)
-      .maybeSingle();
+    if (!data || data.length === 0) {
+      throw new Error(
+        "No se actualizó ningún registro. Verifica las políticas RLS en Supabase (customers: UPDATE policy)."
+      );
+    }
 
-    if (fetchError) throw fetchError;
-    return (data ?? { id, ...updates }) as Customer;
+    return data[0] as Customer;
   },
 
   async getCustomers(limit = 100) {

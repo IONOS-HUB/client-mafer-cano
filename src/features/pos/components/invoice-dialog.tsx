@@ -130,6 +130,7 @@ export function InvoiceDialog({
   const identification = form.watch("identification");
   const [isLoadingCustomer, setIsLoadingCustomer] = useState(false);
   const [customerFound, setCustomerFound] = useState<boolean | null>(null);
+  const [foundCustomerId, setFoundCustomerId] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -138,6 +139,7 @@ export function InvoiceDialog({
       setAmountReceived("");
       setCustomerData(null);
       setCustomerFound(null);
+      setFoundCustomerId(null);
       form.reset();
     }
   }, [isOpen, form]);
@@ -160,21 +162,14 @@ export function InvoiceDialog({
         );
 
         if (customer) {
-          // Auto-completar los campos del formulario
+          setFoundCustomerId(customer.id);
           form.setValue("identification_type", customer.identification_type);
           form.setValue("identification", customer.identification);
           form.setValue("email", customer.email);
           form.setValue("phone", customer.phone);
           form.setValue("address", customer.address);
-
-          if (
-            customer.identification_type === "ruc" &&
-            customer.business_name
-          ) {
-            form.setValue("business_name", customer.business_name);
-          } else if (customer.name) {
-            form.setValue("name", customer.name);
-          }
+          form.setValue("business_name", customer.business_name ?? "");
+          form.setValue("name", customer.name ?? "");
 
           setCustomerFound(true);
           toast.success("Datos del cliente cargados automáticamente");
@@ -232,8 +227,7 @@ export function InvoiceDialog({
 
     // Guardar o actualizar el cliente en la base de datos
     try {
-      const wasNewCustomer = customerFound === false;
-      await customerService.createOrUpdateCustomer({
+      const payload = {
         identification_type: data.identification_type,
         identification: data.identification,
         email: data.email,
@@ -241,9 +235,13 @@ export function InvoiceDialog({
         address: data.address,
         business_name: data.business_name,
         name: data.name,
-      });
+      };
 
-      if (wasNewCustomer) {
+      if (customerFound === true && foundCustomerId) {
+        await customerService.updateCustomer(foundCustomerId, payload);
+        toast.success("Datos del cliente actualizados");
+      } else {
+        await customerService.createCustomer(payload);
         toast.success("Cliente registrado exitosamente");
       }
     } catch (error) {
