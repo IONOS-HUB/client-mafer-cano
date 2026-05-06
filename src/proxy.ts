@@ -37,6 +37,7 @@ export async function proxy(req: NextRequest) {
             !req.nextUrl.pathname.startsWith('/static') &&
             !req.nextUrl.pathname.startsWith('/logo') &&
             !req.nextUrl.pathname.startsWith('/qr') &&
+            !req.nextUrl.pathname.startsWith('/api/sri/') &&
             !req.nextUrl.pathname.includes('.')) { // Archivos con extensión (imágenes, etc)
             return NextResponse.redirect(new URL('/login', req.url))
         }
