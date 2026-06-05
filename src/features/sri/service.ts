@@ -284,12 +284,11 @@ export const sriService = {
 
       try {
         console.log(`[SRI retry] Intento ${index + 1}/${delays.length} para venta ${saleId}...`);
-        const { authorizationNumber } = await this.checkAuthorization(accessKey);
+        const { authorizationNumber, authorizationStatus } = await this.checkAuthorization(accessKey);
 
         if (authorizationNumber) {
           console.log(`[SRI retry] ✅ Autorizado: ${authorizationNumber}`);
 
-          // Actualizar Supabase con el número de autorización
           const { supabaseBrowser } = await import("@/lib/supabase/client");
           await supabaseBrowser
             .from("sales")
@@ -301,8 +300,19 @@ export const sriService = {
             .eq("id", saleId);
 
           onAuthorized?.(authorizationNumber);
+        } else if (authorizationStatus === "NO AUTORIZADO") {
+          // SRI rechazó definitivamente (firma inválida, etc.) — marcar como error
+          // para que el reintento nocturno re-envíe con firma fresca.
+          console.warn(`[SRI retry] ❌ NO AUTORIZADO para venta ${saleId}, marcando como error`);
+          const { supabaseBrowser } = await import("@/lib/supabase/client");
+          await supabaseBrowser
+            .from("sales")
+            .update({
+              sri_status: "error",
+              sri_error_message: "NO AUTORIZADO por el SRI — firma inválida o rechazada",
+            })
+            .eq("id", saleId);
         } else {
-          // No autorizado aún, seguir reintentando
           attempt(index + 1);
         }
       } catch (err) {
@@ -346,6 +356,10 @@ export const sriService = {
         authorizationNumber:
           typeof r.authorizationNumber === "string"
             ? r.authorizationNumber
+            : undefined,
+        authorizationStatus:
+          typeof r.authorizationStatus === "string"
+            ? r.authorizationStatus
             : undefined,
         errorMessage: typeof r.error === "string" ? r.error : undefined,
       };

@@ -36,11 +36,35 @@ type OpenFacturaModule = {
   generateInvoiceXml: (invoice: unknown) => string;
   getP12FromUrl: (url?: string) => Promise<ArrayBuffer>;
   documentReception: (signedXml: string, wsdlUrl: string) => Promise<unknown>;
-  documentAuthorization: (
-    accessKey: string,
-    wsdlUrl: string
-  ) => Promise<unknown>;
 };
+
+// open-factura's documentAuthorization has a bug: it doesn't check `err` before
+// calling client.autorizacionComprobante, so if createClient fails, `client` is
+// undefined and the TypeError becomes an unhandledRejection. We call soap directly.
+async function safeDocumentAuthorization(
+  accessKey: string,
+  authorizationUrl: string
+): Promise<unknown> {
+  const soap = await import("soap");
+  return new Promise((resolve, reject) => {
+    soap.createClient(authorizationUrl, (err, client) => {
+      if (err || !client) {
+        reject(err ?? new Error("No se pudo crear el cliente SOAP de autorización"));
+        return;
+      }
+      client.autorizacionComprobante(
+        { claveAccesoComprobante: accessKey },
+        (err2: unknown, result: unknown) => {
+          if (err2) {
+            reject(err2);
+            return;
+          }
+          resolve(result);
+        }
+      );
+    });
+  });
+}
 
 /**
  * Rellena con caracteres a la izquierda hasta alcanzar la longitud deseada
@@ -513,7 +537,6 @@ export async function POST(request: NextRequest) {
       generateInvoiceXml,
       getP12FromUrl,
       documentReception,
-      documentAuthorization,
     } = facturaLib;
 
     /* 5) Cargar Certificado P12 */
@@ -799,7 +822,7 @@ export async function POST(request: NextRequest) {
             await new Promise((resolve) => setTimeout(resolve, retryDelay));
           }
 
-          const authorizationResult = await documentAuthorization(
+          const authorizationResult = await safeDocumentAuthorization(
             accessKey,
             authorizationUrl
           );

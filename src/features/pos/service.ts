@@ -191,6 +191,11 @@ export const salesService = {
           });
 
           // Actualizar la venta con el resultado del SRI
+          // "NO AUTORIZADO" means SRI rejected the signature permanently — treat as error
+          // so the nightly retry re-submits with a fresh signature instead of polling.
+          const definitivelyRejected =
+            sriResult.authorizationStatus === "NO AUTORIZADO";
+
           const updateData: {
             sri_status: string;
             sri_sent_at: string;
@@ -199,7 +204,8 @@ export const salesService = {
             sri_authorized_at?: string;
             sri_error_message?: string;
           } = {
-            sri_status: sriResult.success ? "sent" : "error",
+            sri_status:
+              sriResult.success && !definitivelyRejected ? "sent" : "error",
             sri_sent_at: new Date().toISOString(),
           };
 
@@ -213,7 +219,9 @@ export const salesService = {
             updateData.sri_authorized_at = new Date().toISOString();
           }
 
-          if (sriResult.errorMessage) {
+          if (definitivelyRejected && !sriResult.errorMessage) {
+            updateData.sri_error_message = "NO AUTORIZADO por el SRI — firma inválida o rechazada";
+          } else if (sriResult.errorMessage) {
             updateData.sri_error_message = sriResult.errorMessage;
           }
 

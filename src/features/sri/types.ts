@@ -30,6 +30,7 @@ export interface SRIIssueResult {
   success: boolean;
   accessKey?: string;
   authorizationNumber?: string;
+  authorizationStatus?: string;
   errorMessage?: string;
 }
 

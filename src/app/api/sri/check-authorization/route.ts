@@ -17,9 +17,32 @@ interface SriAuthorizationResponse {
   numeroAutorizacion?: string;
 }
 
-type OpenFacturaModule = {
-  documentAuthorization: (accessKey: string, wsdlUrl: string) => Promise<unknown>;
-};
+// open-factura's documentAuthorization doesn't check `err` from createClient,
+// causing an unhandledRejection when the SOAP client can't be created.
+async function safeDocumentAuthorization(
+  accessKey: string,
+  authorizationUrl: string
+): Promise<unknown> {
+  const soap = await import("soap");
+  return new Promise((resolve, reject) => {
+    soap.createClient(authorizationUrl, (err, client) => {
+      if (err || !client) {
+        reject(err ?? new Error("No se pudo crear el cliente SOAP de autorización"));
+        return;
+      }
+      client.autorizacionComprobante(
+        { claveAccesoComprobante: accessKey },
+        (err2: unknown, result: unknown) => {
+          if (err2) {
+            reject(err2);
+            return;
+          }
+          resolve(result);
+        }
+      );
+    });
+  });
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -65,14 +88,11 @@ export async function POST(request: NextRequest) {
       process.env.SRI_AUTHORIZATION_URL ||
       "https://celcer.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl";
 
-    const facturaLib = (await import("open-factura")) as unknown as OpenFacturaModule;
-    const { documentAuthorization } = facturaLib;
-
     let authorizationNumber: string | undefined;
     let authorizationStatus: string | undefined;
 
     try {
-      const result = await documentAuthorization(accessKey, authorizationUrl);
+      const result = await safeDocumentAuthorization(accessKey, authorizationUrl);
       console.log("[SRI check-auth]", JSON.stringify(result, null, 2));
 
       const ar = result as SriAuthorizationResponse;
